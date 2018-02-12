@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WaterPipe", "WaterPipe\WaterPipe.vcproj", "{D6B15B07-52E8-4333-ACBC-4C4C89D160BE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|M8SDK (ARMV4I) = Debug|M8SDK (ARMV4I)
+		Release|M8SDK (ARMV4I) = Release|M8SDK (ARMV4I)
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D6B15B07-52E8-4333-ACBC-4C4C89D160BE}.Debug|M8SDK (ARMV4I).ActiveCfg = Debug|M8SDK (ARMV4I)
+		{D6B15B07-52E8-4333-ACBC-4C4C89D160BE}.Debug|M8SDK (ARMV4I).Build.0 = Debug|M8SDK (ARMV4I)
+		{D6B15B07-52E8-4333-ACBC-4C4C89D160BE}.Debug|M8SDK (ARMV4I).Deploy.0 = Debug|M8SDK (ARMV4I)
+		{D6B15B07-52E8-4333-ACBC-4C4C89D160BE}.Release|M8SDK (ARMV4I).ActiveCfg = Release|M8SDK (ARMV4I)
+		{D6B15B07-52E8-4333-ACBC-4C4C89D160BE}.Release|M8SDK (ARMV4I).Build.0 = Release|M8SDK (ARMV4I)
+		{D6B15B07-52E8-4333-ACBC-4C4C89D160BE}.Release|M8SDK (ARMV4I).Deploy.0 = Release|M8SDK (ARMV4I)
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
