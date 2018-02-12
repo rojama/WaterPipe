@@ -1,0 +1,8 @@
+obj\Debug\ResolveAssemblyReference.cache
+obj\Debug\WaterPipe.AboutBox.resources
+obj\Debug\WaterPipe.HighScoreDialog.resources
+obj\Debug\WaterPipe.MainForm.resources
+obj\Debug\WaterPipe.Resources.resources
+obj\Debug\WaterPipe.SplashScreen.resources
+obj\Debug\Resources.resources
+obj\Debug\WaterPipe.vbproj.GenerateResource.Cache

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-stylesheet type='text/xsl' href='_UpgradeReport_Files/UpgradeReport.xslt'?><UpgradeLog>
+<Properties><Property Name="Solution" Value="WaterPipe">
+</Property><Property Name="Solution File" Value="E:\ROJAMA\WaterPipe\WaterPipe.sln">
+</Property><Property Name="Date" Value="2009年1月23日">
+</Property><Property Name="Time" Value="13:20:22">
+</Property></Properties><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe.vbproj" Description="Project file successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe.vbproj">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="AssemblyInfo.vb" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\AssemblyInfo.vb">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="Global.vb" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\Global.vb">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe\AboutBox.vb" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe\AboutBox.vb">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe\HighScoreDialog.vb" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe\HighScoreDialog.vb">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe\MainForm.vb" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe\MainForm.vb">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe\My\MyApplication.vb" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe\My\MyApplication.vb">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe\My\MyComputer.vb" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe\My\MyComputer.vb">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe\My\MyProject.vb" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe\My\MyProject.vb">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe\My\MySettings.vb" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe\My\MySettings.vb">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe\My\Resources\Resources.vb" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe\My\Resources\Resources.vb">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe\SplashScreen.vb" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe\SplashScreen.vb">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe.AboutBox.resources" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe.AboutBox.resources">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe.HighScoreDialog.resources" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe.HighScoreDialog.resources">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe.MainForm.resources" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe.MainForm.resources">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe.Resources.resources" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe.Resources.resources">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe.SplashScreen.resources" Description="File successfully backed up as E:\ROJAMA\WaterPipe_backup\Backup\WaterPipe.SplashScreen.resources">
+</Event><Event ErrorLevel="0" Project="WaterPipe" Source="WaterPipe.vbproj" Description="Project converted successfully">
+</Event><Event ErrorLevel="3" Project="WaterPipe" Source="WaterPipe.vbproj" Description="Converted">
+</Event><Event ErrorLevel="3" Project="WaterPipe" Source="WaterPipe\My\MyProject.vb" Description="file converted">
+</Event><Event ErrorLevel="3" Project="WaterPipe" Source="WaterPipe\MainForm.vb" Description="file converted">
+</Event></UpgradeLog>
