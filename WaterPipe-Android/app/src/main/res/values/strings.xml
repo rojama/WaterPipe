@@ -1,0 +1,51 @@
+<resources>
+    <string name="app_name">水管工 WaterPipe</string>
+    <string name="score_format">分数：%d</string>
+    <string name="remaining_format">剩余：%d</string>
+    <string name="btn_skip">跳过</string>
+    <string name="btn_start">开始</string>
+    <string name="btn_new_game">新游戏</string>
+    <string name="btn_flow">流水</string>
+    <string name="btn_exit">退出</string>
+    <string name="btn_ranking">排行榜</string>
+    <string name="btn_settings">设置</string>
+    <string name="menu_game">游戏</string>
+    <string name="congrats_rank">恭喜！你获得了第 %1$d 名，得分为 %2$d 分。</string>
+    <string name="hint_name">请输入你的姓名</string>
+    <string name="btn_record">记录</string>
+    <string name="btn_no_record">不记录</string>
+    <string name="btn_return">返回</string>
+    <string name="screenshot_missing">记录图像不存在</string>
+
+    <string name="pref_section_ui">界面</string>
+    <string name="pref_info_panel_pos">信息面板位置</string>
+    <string name="pref_queue_direction">管道队列方向</string>
+    <string name="pref_left">左边</string>
+    <string name="pref_right">右边</string>
+    <string name="pref_up">向上</string>
+    <string name="pref_down">向下</string>
+
+    <string name="pref_section_sound">声音</string>
+    <string name="pref_system_volume">系统音量</string>
+    <string name="pref_game_volume">游戏音量</string>
+    <string name="pref_sound_effects">音效</string>
+    <string name="pref_sound_enabled">开</string>
+    <string name="pref_sound_disabled">关</string>
+
+    <string name="pref_section_other">其它</string>
+    <string name="pref_home_key_action">返回键动作</string>
+    <string name="pref_home_invalid">无效</string>
+    <string name="pref_home_minimize">最小化</string>
+    <string name="pref_home_close">关闭</string>
+    <string name="pref_readme">游戏说明</string>
+    <string name="pref_about">关于游戏</string>
+
+    <string name="readme_title">游戏说明</string>
+    <string name="about_title">关于游戏</string>
+
+    <string name="ranking_item_format">第 %1$d 名： %2$d分  %3$s</string>
+
+    <string name="readme_text">游戏类型：益智类休闲游戏\n\n游戏目的：挑战自我，取得最高的分数。\n\n游戏玩法：\n从顶端标注的出水口开始，根据旁边待用的水管点击格子接入，尽量不要留有缺口。在所有的水管接入后，水将从出水口中流出，水流遇见缺口将不再流动（如无缺口将得到奖励分），水流出的多少将决定最终的分数。\n\n计分规则：\n· 弯管(LU/RU/RD/LD)：每块 6 分\n· 直管(LR/UD)：每块 7 分\n· 丁字管(LUR/URD/LRD/LUD)：每块 10 分\n· 十字管(LURD)：每块 13 分\n· 立交桥(LURDX)：双向贯通 16 分，单向 8 分\n· 双弧立交(LURD\\ / LURD/)：双向贯通 12 分，单向 6 分\n· 全程无缺口奖励 +20 分\n\n向更高的分数挑战吧！</string>
+
+    <string name="about_text">水管工 WaterPipe\n版本 2.0 Android 移植版\n\n原作者：gchunyan (魅族 M8 版 v1.5)\n\nAndroid 移植说明：\n• 去除了原 DRM 机器码/注册码校验\n• 修复原代码若干 Bug（SN 截断、双重析构、内存泄漏、音量恢复、未初始化句柄等）\n• 使用 Jetpack Compose 重写 UI，支持横屏自适应\n• 使用协程 + ValueAnimator 实现多波次水流动画，替代原 Sleep 阻塞线程\n• 使用 DataStore SharedPreferences 替代原 INI 持久化\n• 排行榜 BMP 截图改为 PNG 压缩并使用应用内目录</string>
+</resources>

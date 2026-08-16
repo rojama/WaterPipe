@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 蓝色圆形背景 -->
+    <path
+        android:fillColor="#FF1976D2"
+        android:pathData="M54,54m-54,0a54,54 0,1 1,108 0a54,54 0,1 1,-108 0" />
+    <!-- 白色 水管 图形（横直管 T 型组合） -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M27,54h54M54,27v54"
+        android:strokeWidth="12"
+        android:strokeColor="#FFFFFF" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,54a3,3 0,1 0,6 0a3,3 0,1 0,-6 0zM78,54a3,3 0,1 0,6 0a3,3 0,1 0,-6 0zM54,24a3,3 0,1 0,6 0a3,3 0,1 0,-6 0zM54,78a3,3 0,1 0,6 0a3,3 0,1 0,-6 0z" />
+    <!-- 水滴 -->
+    <path
+        android:fillColor="#FF29B6F6"
+        android:pathData="M54,66c-6,0 -10,-4 -10,-9c0,-6 10,-16 10,-16s10,10 10,16C64,62 60,66 54,66z" />
+</vector>
