@@ -1,0 +1,197 @@
+name: WaterPipe Android Build
+
+on:
+  push:
+    branches:
+      - waterpipe-android
+    paths:
+      - 'WaterPipe-Android/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches:
+      - waterpipe-android
+    paths:
+      - 'WaterPipe-Android/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+env:
+  PROJECT_DIR: WaterPipe-Android
+  JAVA_VERSION: '17'
+  JAVA_DIST: 'temurin'
+  GRADLE_VERSION: '8.7'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build APK (Debug + Release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ${{ env.PROJECT_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Gradle wrapper files
+        id: wrapper_check
+        run: |
+          set -e
+          WRAPPER_DIR="gradle/wrapper"
+          PROPS="${WRAPPER_DIR}/gradle-wrapper.properties"
+          JAR="${WRAPPER_DIR}/gradle-wrapper.jar"
+          if [ ! -f "gradlew" ]; then echo "::error::Missing gradlew script"; exit 1; fi
+          if [ ! -f "${PROPS}" ]; then echo "::error::Missing ${PROPS}"; exit 1; fi
+          if [ ! -f "${JAR}" ]; then
+            echo "wrapper_jar_missing=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::gradle-wrapper.jar not committed; will download official Gradle ${GRADLE_VERSION} wrapper jar from services.gradle.org"
+          else
+            echo "wrapper_jar_missing=false" >> "$GITHUB_OUTPUT"
+          fi
+          chmod +x gradlew
+          echo "gradlew permission: $(stat -c '%a' gradlew)"
+
+      - name: Download Gradle wrapper jar (bootstrap)
+        if: steps.wrapper_check.outputs.wrapper_jar_missing == 'true'
+        run: |
+          set -euo pipefail
+          WRAPPER_DIR="gradle/wrapper"
+          OUT_JAR="${WRAPPER_DIR}/gradle-wrapper.jar"
+          mkdir -p "${WRAPPER_DIR}"
+          # Gradle publishes wrapper jars alongside each release, e.g. 8.7 under
+          # https://services.gradle.org/distributions/gradle-<ver>-wrapper.jar
+          URL="https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-wrapper.jar"
+          echo "Downloading wrapper jar from: ${URL}"
+          curl -fsSL --retry 3 --retry-all-errors --connect-timeout 15 --max-time 120 \
+            -o "${OUT_JAR}" "${URL}"
+          # sanity: it should be a zip (jar) with entries
+          if ! file "${OUT_JAR}" | grep -qiE '(zip|jar)'; then
+            echo "::error::Downloaded wrapper jar is not a valid zip/jar"
+            exit 1
+          fi
+          SIZE=$(stat -c '%s' "${OUT_JAR}")
+          echo "Downloaded wrapper jar size: ${SIZE} bytes"
+          if [ "${SIZE}" -lt 50000 ]; then
+            echo "::error::Wrapper jar too small (${SIZE} bytes), probably corrupted"
+            exit 1
+          fi
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }} (${{ env.JAVA_DIST }})
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DIST }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: wrapper
+          cache-write-only: ${{ github.ref == 'refs/heads/waterpipe-android' }}
+          cache-read-only: false
+
+      - name: Build debug APK
+        id: build_debug
+        run: |
+          ./gradlew --no-daemon --stacktrace --warning-mode all \
+            :app:assembleDebug \
+            -PdisablePreDex=true \
+            -Dorg.gradle.parallel=true \
+            -Dorg.gradle.caching=true
+
+      - name: Build release APK (unsigned)
+        id: build_release
+        if: always() && steps.build_debug.outcome == 'success'
+        run: |
+          ./gradlew --no-daemon --stacktrace --warning-mode all \
+            :app:assembleRelease \
+            -PdisablePreDex=true \
+            -Dorg.gradle.parallel=true \
+            -Dorg.gradle.caching=true
+
+      - name: Locate APK artifacts
+        id: locate
+        if: always()
+        run: |
+          set -e
+          ROOT_OUT="app/build/outputs/apk"
+          echo "::group::APK output tree"
+          find "${ROOT_OUT}" -type f \( -name '*.apk' -o -name 'output-metadata.json' \) -print0 | xargs -0 ls -la || echo "No APKs found"
+          echo "::endgroup::"
+
+          DEBUG_APK=""
+          if [ -d "${ROOT_OUT}/debug" ]; then
+            DEBUG_APK=$(find "${ROOT_OUT}/debug" -maxdepth 2 -name '*.apk' -type f | head -n1 || true)
+          fi
+          RELEASE_APK=""
+          if [ -d "${ROOT_OUT}/release" ]; then
+            # Prefer signed if any; otherwise unsigned
+            RELEASE_APK=$( (find "${ROOT_OUT}/release" -maxdepth 2 -name 'app-release.apk' -type f;
+                            find "${ROOT_OUT}/release" -maxdepth 2 -name '*.apk' ! -name '*-unsigned.apk' -type f;
+                            find "${ROOT_OUT}/release" -maxdepth 2 -name '*-unsigned.apk' -type f) | head -n1 || true)
+          fi
+
+          if [ -z "${DEBUG_APK}" ]; then
+            echo "::warning::Debug APK not found"
+          else
+            echo "debug_apk=${DEBUG_APK}" >> "$GITHUB_OUTPUT"
+            echo "debug_name=$(basename "${DEBUG_APK}")" >> "$GITHUB_OUTPUT"
+            echo "Debug APK: ${DEBUG_APK}"
+          fi
+
+          if [ -z "${RELEASE_APK}" ]; then
+            echo "::warning::Release APK not found"
+          else
+            echo "release_apk=${RELEASE_APK}" >> "$GITHUB_OUTPUT"
+            echo "release_name=$(basename "${RELEASE_APK}")" >> "$GITHUB_OUTPUT"
+            echo "Release APK: ${RELEASE_APK}"
+          fi
+
+      - name: Upload debug APK artifact
+        if: steps.locate.outputs.debug_apk != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: waterpipe-android-debug-apk
+          path: ${{ env.PROJECT_DIR }}/${{ steps.locate.outputs.debug_apk }}
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload release APK artifact
+        if: steps.locate.outputs.release_apk != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: waterpipe-android-release-apk
+          path: ${{ env.PROJECT_DIR }}/${{ steps.locate.outputs.release_apk }}
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: waterpipe-android-build-logs
+          path: |
+            ${{ env.PROJECT_DIR }}/app/build/reports/**
+            ${{ env.PROJECT_DIR }}/app/build/outputs/logs/**
+            ${{ env.PROJECT_DIR }}/**/build/reports/**
+            ~/.gradle/daemon/**/*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Build summary
+        if: always()
+        run: |
+          echo "### WaterPipe Android Build Summary 🚰" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Branch / SHA: \`${GITHUB_REF_NAME}\` @ \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- JDK: Java ${{ env.JAVA_VERSION }} (${{ env.JAVA_DIST }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Gradle wrapper version: ${{ env.GRADLE_VERSION }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Debug APK: \`${{ steps.locate.outputs.debug_name || '(not found)' }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release APK: \`${{ steps.locate.outputs.release_name || '(not found)' }}\`" >> "$GITHUB_STEP_SUMMARY"
