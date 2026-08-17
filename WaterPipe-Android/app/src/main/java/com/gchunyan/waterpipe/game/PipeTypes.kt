@@ -48,8 +48,9 @@ object PipeTypes {
         LR, UD, LUR, URD, LRD, LUD, LURD, LURDX, LU, RU, RD, LD
     )
 
-    /** tag -> drawable 资源名（与 drawable-nodpi 下的文件名对应，不含扩展名）。*/
-    fun drawableNameFor(tag: String): String = when (tag) {
+    /** tag -> drawable 资源名（与 drawable-nodpi 下的文件名对应，不含扩展名）。
+     * 空格 (EMPTY) 返回 null — 原 C++ 代码 SetImage_Normal(NULL)，空格显示 WangGe 底图。*/
+    fun drawableNameFor(tag: String): String? = when (tag) {
         LR -> "pipe1"
         UD -> "pipe2"
         LUR -> "pipe3"
@@ -64,7 +65,7 @@ object PipeTypes {
         LD -> "pipe12"
         LURD_BACK -> "pipe13"
         LURD_SLASH -> "pipe14"
-        else -> "pipe0"
+        else -> null
     }
 
     /** 立交桥合并：旧 tag + 新 tag 为互补对角则升级为双弧立交桥。

@@ -10,19 +10,24 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.core.view.WindowCompat
+import com.gchunyan.waterpipe.util.WaterAnimBitmap
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WaterAnimBitmap.ensureLoaded(applicationContext)
         setContent {
             WaterPipeTheme {
-                Surface(color = MaterialTheme.colorScheme.background) {
+                Surface(color = Color(0xFFD0E8FF)) {
                     WaterPipeApp()
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        WaterAnimBitmap.recycle()
+        super.onDestroy()
     }
 }
 
@@ -39,7 +44,7 @@ fun WaterPipeTheme(content: @Composable () -> Unit) {
         lightColorScheme(
             primary = Color(0xFF1976D2),
             secondary = Color(0xFFFF6F00),
-            background = Color(0xFFF0F8FF),
+            background = Color(0xFFD0E8FF),
             surface = Color(0xFFFFFFFF)
         )
     }
