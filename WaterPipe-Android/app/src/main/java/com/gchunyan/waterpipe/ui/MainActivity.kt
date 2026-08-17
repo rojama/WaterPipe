@@ -1,8 +1,11 @@
 package com.gchunyan.waterpipe.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -51,6 +54,10 @@ sealed class Screen(val route: String) {
 class GameViewModel(private val repo: SettingsRepository) : ViewModel() {
 
     val engine = WaterPipeEngine()
+
+    var gameVersion by mutableIntStateOf(0)
+        private set
+
     val settings: StateFlow<AppSettings> = repo.settingsFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
 
@@ -61,11 +68,15 @@ class GameViewModel(private val repo: SettingsRepository) : ViewModel() {
         viewModelScope.launch {
             _ranking.value = repo.loadRanking()
             engine.newGame()
+            gameVersion++
         }
     }
 
+    fun notifyChanged() { gameVersion++ }
+
     fun newGame() {
         engine.newGame()
+        gameVersion++
     }
 
     fun saveScreenshotAndInsert(tempFile: String, name: String, score: Int, rankNo: Int) {
