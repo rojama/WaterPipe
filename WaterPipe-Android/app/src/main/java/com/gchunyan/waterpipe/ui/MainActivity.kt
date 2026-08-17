@@ -5,6 +5,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -134,9 +136,6 @@ fun WaterPipeApp() {
         }
     }
 }
-
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.CreationExtras
 
 @Suppress("UNCHECKED_CAST")
 internal class GenericFactory(private val create: () -> ViewModel) : ViewModelProvider.Factory {

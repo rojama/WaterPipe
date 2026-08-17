@@ -124,11 +124,13 @@ jobs:
 
       # After any generation/validation, re-run setup-gradle in "wrapper" mode to let
       # gradle/actions manage its cache around the actual wrapper execution.
+      # Note: setup-gradle@v4 does not accept a build-root-directory input; we rely on
+      # each shell step using working-directory so the wrapper at $PROJECT_DIR/gradlew
+      # is discovered on PATH.
       - name: Setup Gradle (wrapper mode)
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: wrapper
-          build-root-directory: ${{ env.PROJECT_DIR }}
           cache-write-only: ${{ github.ref == 'refs/heads/waterpipe-android' }}
           cache-read-only: false
           validate-wrappers: false
