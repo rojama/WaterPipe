@@ -115,7 +115,6 @@ fun GameScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         bgBitmap?.let {
             Image(bitmap = it, contentDescription = null,
@@ -158,12 +157,12 @@ fun GameScreen(
     }
 }
 
-private fun Modifier.widthIn(fraction: Float) =
-    this.then(Modifier.run {
-        val activity = androidx.compose.ui.platform.LocalContext.current as? Activity
-        val sw = activity?.resources?.displayMetrics?.widthPixels ?: 1080
-        width((sw * fraction).toInt().coerceAtLeast(180).dp)
-    })
+@Composable
+private fun Modifier.widthIn(fraction: Float): Modifier {
+    val activity = LocalContext.current as? Activity
+    val sw = activity?.resources?.displayMetrics?.widthPixels ?: 1080
+    return this.width((sw * fraction).toInt().coerceAtLeast(180).dp)
+}
 
 @Composable
 private fun GameLeftPanel(
@@ -276,12 +275,13 @@ private fun PreviewColumnDown(vm: GameViewModel, s: AppSettings, mod: Modifier) 
     }
 }
 
+@Composable
 private fun tagToDrawableRes(tag: String?): Int? {
     if (tag == null) return null
     val nm = PipeTypes.drawableNameFor(tag) ?: return null
-    return try {
-        android.content.Context().resources.getIdentifier(nm, "drawable", android.content.Context().packageName)
-    } catch (_: Throwable) { null }
+    val ctx = LocalContext.current
+    val id = ctx.resources.getIdentifier(nm, "drawable", ctx.packageName)
+    return if (id != 0) id else null
 }
 
 private fun tagToDrawableRes(ctx: android.content.Context, tag: String?): Int? {
