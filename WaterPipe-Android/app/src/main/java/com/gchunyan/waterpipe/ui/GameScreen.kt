@@ -432,7 +432,7 @@ private fun DrawScope.drawSegmentOverlay(seg: AnimationState.SegmentProgress, sc
         color = Color(0xCC29B6F6)
         isAntiAlias = true
         strokeWidth = (w / 6f)
-        style = androidx.compose.ui.graphics.drawscope.Stroke()
+        style = androidx.compose.ui.graphics.PaintingStyle.Stroke
     }
     fun endPoint(dir: Char, frac: Float): Offset {
         return when (dir) {
