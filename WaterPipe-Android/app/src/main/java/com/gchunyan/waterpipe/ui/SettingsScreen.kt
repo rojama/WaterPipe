@@ -1,5 +1,6 @@
 package com.gchunyan.waterpipe.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -191,7 +192,8 @@ private fun SliderLine(title: String, range: IntRange, value: Int, onValue: (Int
 @Composable
 private fun NavLine(title: String, onClick: () -> Unit) {
     Card(
-        Modifier.fillMaxWidth().padding(8.dp).clickable(onClick = onClick),
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().padding(8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(

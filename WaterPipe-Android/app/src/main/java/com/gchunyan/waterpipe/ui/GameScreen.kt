@@ -1,6 +1,7 @@
 package com.gchunyan.waterpipe.ui
 
 import android.graphics.BitmapFactory
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -334,11 +335,12 @@ private fun PreviewList(vm: GameViewModel, s: AppSettings) {
     }
 }
 
+@Composable
 private fun tagToDrawable(tag: String): Int {
     val nm = PipeTypes.drawableNameFor(tag)
-    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val ctx = LocalContext.current
     return try {
-        ctx.resources.getIdentifier(nm, "drawable", ctx.packageName)
+        ctx.resources.getIdentifier(nm, "drawable", ctx.packageName).takeIf { it != 0 } ?: R.drawable.pipe0
     } catch (_: Throwable) {
         R.drawable.pipe0
     }
@@ -430,7 +432,7 @@ private fun DrawScope.drawSegmentOverlay(seg: AnimationState.SegmentProgress, sc
         color = Color(0xCC29B6F6)
         isAntiAlias = true
         strokeWidth = (w / 6f)
-        style = androidx.compose.ui.graphics.drawscope.Stroke
+        style = androidx.compose.ui.graphics.drawscope.Stroke()
     }
     fun endPoint(dir: Char, frac: Float): Offset {
         return when (dir) {

@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioManager
 import android.media.SoundPool
 import com.gchunyan.waterpipe.R
+import java.util.EnumMap
 
 /**
  * 音效播放器：SoundPool 替代原 PlaySound。
@@ -43,7 +44,7 @@ class SoundManager(private val context: Context) {
         pool.play(sid, actual, actual, 1, if (loop) -1 else 0, 1f)
     }
 
-    fun stopAll() { pool.autoPause(); pool.resume() /* noop ensure state */ }
+    fun stopAll() { pool.autoPause() }
 
     fun release() { pool.release() }
 }

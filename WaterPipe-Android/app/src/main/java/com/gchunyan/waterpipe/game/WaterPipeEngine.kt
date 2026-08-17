@@ -115,6 +115,9 @@ class WaterPipeEngine(
     /** 是否可以启动流水：全部 45 块使用完或玩家主动启动。 */
     fun canStartFinal(): Boolean = !isFinalizing && isInGame
 
+    /** 兼容命名（UI 层引用）。 */
+    fun canStartFinalization(): Boolean = canStartFinal()
+
     // ---------- 注水流程 ----------
 
     /** 启动注水 BFS 流程（准备 first check）。*/
