@@ -14,7 +14,7 @@
             android:name=".ui.MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="portrait"
             android:theme="@style/Theme.WaterPipe">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
