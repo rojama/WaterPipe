@@ -424,13 +424,16 @@ private fun GridPanel(
     val ctx = LocalContext.current
     val version = vm.gameVersion
 
-    Box(mod.padding(4.dp)) {
-        Column(Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceEvenly,
-            horizontalAlignment = Alignment.CenterHorizontally) {
+    Box(mod.fillMaxSize()) {
+        wangge?.let {
+            Image(bitmap = it, contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds)
+        }
+
+        Column(Modifier.fillMaxSize()) {
             repeat(PipeTypes.ROWS) { r ->
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly) {
+                Row(Modifier.weight(1f, fill = true)) {
                     repeat(PipeTypes.COLS) { c ->
                         val box = PipeTypes.boxIndex(r, c)
                         CellView(
@@ -438,7 +441,6 @@ private fun GridPanel(
                             box = box,
                             vm = vm,
                             anim = anim,
-                            wangge = wangge,
                             onClick = {
                                 if (!vm.engine.isFinalizing) onCellClick(r, c)
                             }
@@ -456,7 +458,6 @@ private fun CellView(
     box: Int,
     vm: GameViewModel,
     anim: AnimationState,
-    wangge: ImageBitmap?,
     onClick: () -> Unit
 ) {
     val state = vm.engine.boxes[box]
@@ -467,16 +468,8 @@ private fun CellView(
     Box(
         mod
             .aspectRatio(1f, false)
-            .padding(1.dp)
             .clickable { onClick() }
     ) {
-        if (wangge != null && box != PipeTypes.SOURCE_INDEX) {
-            Image(bitmap = wangge, contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                alpha = 0.35f)
-        }
-
         if (box == PipeTypes.SOURCE_INDEX) {
             Box(Modifier.fillMaxSize().background(Color(0xFFFFF9C4)))
         }
