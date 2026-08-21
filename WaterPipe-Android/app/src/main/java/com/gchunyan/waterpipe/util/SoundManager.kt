@@ -18,11 +18,12 @@ class SoundManager(private val context: Context) {
         .build()
 
     enum class Sfx(val resId: Int) {
-        PLACE(R.raw.assembly_line_moving),   // 放管（原 Button/assembly_line_moving）
-        MERGE(R.raw.klunk),                  // 立交桥合并（原 klunk）
-        WARNING(R.raw.warning),              // 溢出报警
-        WATER(R.raw.water_flow),             // 水流循环
-        TAP(R.raw.button)                    // 按钮点击
+        PLACE(R.raw.boink),                    // 放管到空格（原 boink）
+        MERGE(R.raw.klunk),                     // 立交桥合并（原 klunk）
+        BREAK(R.raw.glass_breaking),            // 管道替换/打破立交（原 glass_breaking）
+        WARNING(R.raw.warning),                 // 溢出报警
+        WATER(R.raw.water_flow),                // 水流循环
+        TAP(R.raw.button)                       // 按钮点击
     }
 
     private val sfxIds: MutableMap<Sfx, Int> = EnumMap(Sfx::class.java)

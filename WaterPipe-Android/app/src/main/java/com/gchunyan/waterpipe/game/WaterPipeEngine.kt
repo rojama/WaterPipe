@@ -67,12 +67,16 @@ class WaterPipeEngine(
             queue.add(PipeTypes.RANDOM_TAGS[random.nextInt(PipeTypes.RANDOM_TAGS.size)])
         }
 
-        // 水源入口：第 1 行第 3 格 (0,2)，从顶部注入
+        // 水源入口：第 1 行第 3 格 (0,2)，从顶部注入；tag=SOURCE 使 UI 显示 pipe0（入口图）
+        boxes[PipeTypes.SOURCE_INDEX].tag = PipeTypes.SOURCE
         boxes[PipeTypes.SOURCE_INDEX].addIn(PipeTypes.SOURCE_ENTRY[0])
         waveQueue.add(PipeTypes.SOURCE_INDEX)
     }
 
     // ---------- 放置/跳过 ----------
+
+    enum class PlaceType { PLACE, REPLACE, MERGE, FAIL }
+    data class PlaceResult(val ok: Boolean, val type: PlaceType)
 
     fun currentQueueTagOrNull(): String? = queue.getOrNull(nowItemNo)
 
@@ -86,14 +90,17 @@ class WaterPipeEngine(
 
     /**
      * 在 (row, col) 放置当前方块。
-     * @return 放置结果：成功(true)/失败(false)；成功同时 nowItemNo 自增。
+     * @return 结果类型：PLACE（空格放置）/REPLACE（已有管替换）/MERGE（立交桥合并）/FAIL。
+     * 成功时 nowItemNo 自增。
      */
-    fun putImage(row: Int, col: Int): Boolean {
-        if (isFinalizing) return false
-        if (row !in 0 until PipeTypes.ROWS || col !in 0 until PipeTypes.COLS) return false
-        val tag = currentQueueTagOrNull() ?: return false
+    fun putImage(row: Int, col: Int): PlaceResult {
+        if (isFinalizing) return PlaceResult(false, PlaceType.FAIL)
+        if (row !in 0 until PipeTypes.ROWS || col !in 0 until PipeTypes.COLS) return PlaceResult(false, PlaceType.FAIL)
+        val tag = currentQueueTagOrNull() ?: return PlaceResult(false, PlaceType.FAIL)
         val box = PipeTypes.boxIndex(row, col)
         val state = boxes[box]
+        // 水源格不允许放管
+        if (box == PipeTypes.SOURCE_INDEX) return PlaceResult(false, PlaceType.FAIL)
 
         // 若该格已有 tag：尝试立交桥合并
         if (state.tag.isNotEmpty() && state.tag != PipeTypes.EMPTY) {
@@ -101,15 +108,17 @@ class WaterPipeEngine(
             if (merged != null) {
                 state.tag = merged
                 nowItemNo++
-                return true
+                return PlaceResult(true, PlaceType.MERGE)
             }
-            // 不兼容：不可放置
-            return false
+            // 不兼容：直接替换原管道 + glass_breaking 音
+            state.tag = tag
+            nowItemNo++
+            return PlaceResult(true, PlaceType.REPLACE)
         }
         // 空格：直接写入
         state.tag = tag
         nowItemNo++
-        return true
+        return PlaceResult(true, PlaceType.PLACE)
     }
 
     /** 是否可以启动流水：全部 45 块使用完或玩家主动启动。 */
@@ -133,6 +142,8 @@ class WaterPipeEngine(
         for (box in waveQueue.toList()) {
             val st = boxes[box]
             for (entry in st.inLab) {
+                // SOURCE: 水源格 tag 固定，不校验入口包含关系 (入口图无字母)
+                if (st.tag == PipeTypes.SOURCE) continue
                 if (!st.tag.contains(entry)) {
                     isErr = true
                     errors.add(ErrBox(box, entry))
@@ -189,7 +200,12 @@ class WaterPipeEngine(
                 val map = PipeTypes.flowOutMap(flowDir)
                 val nextBox = PipeTypes.neighbor(box, flowDir)
                 if (nextBox != null) {
-                    if (boxes[nextBox].tag.isEmpty()) continue  // 空格，水不能进入
+                    // 空格: 水不能进入 -> 溢出错误 (注意水源格 SOURCE 不算空)
+                    if (boxes[nextBox].tag.isEmpty() || boxes[nextBox].tag == PipeTypes.EMPTY) {
+                        isErr = true
+                        errors.add(ErrBox(box, map.errLetter))
+                        continue
+                    }
                     boxes[nextBox].addIn(map.inLetter)
                     if (!nextWave.contains(nextBox)) nextWave.add(nextBox)
                 } else {
@@ -288,6 +304,10 @@ class WaterPipeEngine(
                 if ('D' in inLetters) out.add('W' to 'D')
                 if ('R' in inLetters) out.add('N' to 'R')
                 if ('U' in inLetters) out.add('E' to 'U')
+            }
+            PipeTypes.SOURCE -> {
+                // 水源格：U 是"入口边", 从南出口流出 (下一格), 无实际端口字母限制
+                if ('U' in inLetters) out.add('S' to 'U')
             }
         }
         return out

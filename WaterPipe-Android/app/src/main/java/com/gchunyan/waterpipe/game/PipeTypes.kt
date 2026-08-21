@@ -47,6 +47,8 @@ object PipeTypes {
     const val LURD_BACK = "LURD\\"
     const val LURD_SLASH = "LURD/"
     const val EMPTY = ""
+    const val SOURCE = "SRC"        // 水源格专用 tag：入口 + 管道口图
+    const val SOURCE_TAG = SOURCE
 
     /** 随机生成管道：从 12 种普通型（不含三种立交）抽取 index 0..11。*/
     val RANDOM_TAGS: List<String> = listOf(
@@ -54,8 +56,10 @@ object PipeTypes {
     )
 
     /** tag -> drawable 资源名（与 drawable-nodpi 下的文件名对应，不含扩展名）。
-     * 空格 (EMPTY) 返回 null — 原 C++ 代码 SetImage_Normal(NULL)，空格显示 WangGe 底图。*/
+     * 空格 (EMPTY) 返回 null — 原 C++ 代码 SetImage_Normal(NULL)，空格显示 WangGe 底图。
+     * SOURCE (水源格) 用 pipe0 (入口图) */
     fun drawableNameFor(tag: String): String? = when (tag) {
+        SOURCE -> "pipe0"
         LR -> "pipe1"
         UD -> "pipe2"
         LUR -> "pipe3"

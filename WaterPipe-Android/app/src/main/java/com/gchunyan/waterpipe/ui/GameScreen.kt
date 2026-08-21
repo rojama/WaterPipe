@@ -132,18 +132,16 @@ fun GameScreen(
                 BoxWithConstraints(Modifier.fillMaxHeight().weight(PipeTypes.WANGGE_W.toFloat(), fill = false)) {
                     GridPanel(Modifier.fillMaxSize(), vm, settings, animState, ticker, wanggeBitmap) { r, c ->
                         if (!vm.engine.isFinalizing) {
-                            val ok = vm.engine.putImage(r, c)
-                            if (ok) {
-                                if (settings.soundsOn) {
-                                    val tag = vm.engine.boxes[PipeTypes.boxIndex(r, c)].tag
-                                    val merged = tag == PipeTypes.LURD_BACK || tag == PipeTypes.LURD_SLASH
-                                    sound.play(
-                                        if (merged) SoundManager.Sfx.MERGE else SoundManager.Sfx.PLACE,
-                                        0.6f * settings.volume / 100f
-                                    )
+                            val res = vm.engine.putImage(r, c)
+                            if (res.ok && settings.soundsOn) {
+                                val sfx = when (res.type) {
+                                    WaterPipeEngine.PlaceType.MERGE -> SoundManager.Sfx.MERGE
+                                    WaterPipeEngine.PlaceType.REPLACE -> SoundManager.Sfx.BREAK
+                                    else -> SoundManager.Sfx.PLACE
                                 }
-                                vm.notifyChanged()
+                                sound.play(sfx, 0.6f * settings.volume / 100f)
                             }
+                            if (res.ok) vm.notifyChanged()
                             if (vm.engine.remaining == 0 && !vm.engine.isFinalizing) {
                                 onFinalizeRequested()
                             }
@@ -416,28 +414,43 @@ private fun GridPanel(
 
     val ctx = LocalContext.current
     val version = vm.gameVersion
+    // 原资源 wangge 尺寸 390(W) x 615(H)
+    val ratioW = PipeTypes.WANGGE_W.toFloat()
+    val ratioH = 615f
 
-    Box(mod.fillMaxSize()) {
-        wangge?.let {
-            Image(bitmap = it, contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds)
-        }
-
-        Column(Modifier.fillMaxSize()) {
-            repeat(PipeTypes.ROWS) { r ->
-                Row(Modifier.weight(1f, fill = true)) {
-                    repeat(PipeTypes.COLS) { c ->
-                        val box = PipeTypes.boxIndex(r, c)
-                        CellView(
-                            mod = Modifier.weight(1f, fill = true),
-                            box = box,
-                            vm = vm,
-                            anim = anim,
-                            onClick = {
-                                if (!vm.engine.isFinalizing) onCellClick(r, c)
+    Box(mod.fillMaxSize(), contentAlignment = Alignment.Center) {
+        BoxWithConstraints(Modifier.fillMaxSize().align(Alignment.Center)) {
+            val maxW = maxWidth
+            val maxH = maxHeight
+            val widthFromHeight = maxH * (ratioW / ratioH)
+            val heightFromWidth = maxW * (ratioH / ratioW)
+            val target: androidx.compose.ui.unit.DpSize = if (widthFromHeight <= maxW) {
+                androidx.compose.ui.unit.DpSize(widthFromHeight, maxH)   // 以高度为准 (竖直方向占满, 横屏时两侧留空)
+            } else {
+                androidx.compose.ui.unit.DpSize(maxW, heightFromWidth)   // 否则以宽度为准 (高窄屏时上下留空)
+            }
+            Box(Modifier.size(target.width, target.height)) {
+                wangge?.let {
+                    Image(bitmap = it, contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.FillBounds)
+                }
+                Column(Modifier.fillMaxSize()) {
+                    repeat(PipeTypes.ROWS) { r ->
+                        Row(Modifier.weight(1f, fill = true)) {
+                            repeat(PipeTypes.COLS) { c ->
+                                val box = PipeTypes.boxIndex(r, c)
+                                CellView(
+                                    mod = Modifier.weight(1f, fill = true),
+                                    box = box,
+                                    vm = vm,
+                                    anim = anim,
+                                    onClick = {
+                                        if (!vm.engine.isFinalizing) onCellClick(r, c)
+                                    }
+                                )
                             }
-                        )
+                        }
                     }
                 }
             }
@@ -463,10 +476,6 @@ private fun CellView(
             .aspectRatio(1f, false)
             .clickable { onClick() }
     ) {
-        if (box == PipeTypes.SOURCE_INDEX) {
-            Box(Modifier.fillMaxSize().background(Color(0xFFFFF9C4)))
-        }
-
         if (resId != null) {
             Image(
                 bitmap = ImageBitmap.imageResource(resId),
