@@ -19,6 +19,11 @@ object PipeTypes {
     const val SOURCE_INDEX = 2                // 水源格索引：第 1 行第 3 格 (0,2)
     const val SOURCE_ENTRY = "U"              // 水从上方进入水源格
 
+    // 左右面板原始像素宽度（M8 480x720 对应 480x615 工作区）
+    const val YULANG_W = 90                   // 左侧面板宽
+    const val WANGGE_W = 390                  // 网格面板宽
+    const val WORK_W = YULANG_W + WANGGE_W    // 480
+
     const val ANIM_FRAMES = 15
     const val ANIM_HALF_FRAME = 8
     const val ANIM_FRAME_MS = 100L

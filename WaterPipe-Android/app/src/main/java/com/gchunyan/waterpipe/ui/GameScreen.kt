@@ -126,10 +126,10 @@ fun GameScreen(
             Row(Modifier.weight(1f, fill = true)) {
                 GameLeftPanel(Modifier
                     .fillMaxHeight()
-                    .widthIn(.82f), vm, settings, sound, onFinalizeRequested, onNewGame,
+                    .weight(PipeTypes.YULANG_W.toFloat(), fill = false), vm, settings, sound, onFinalizeRequested, onNewGame,
                     yulangBitmap)
 
-                BoxWithConstraints(Modifier.fillMaxHeight().weight(1f)) {
+                BoxWithConstraints(Modifier.fillMaxHeight().weight(PipeTypes.WANGGE_W.toFloat(), fill = false)) {
                     GridPanel(Modifier.fillMaxSize(), vm, settings, animState, ticker, wanggeBitmap) { r, c ->
                         if (!vm.engine.isFinalizing) {
                             val ok = vm.engine.putImage(r, c)
@@ -155,13 +155,6 @@ fun GameScreen(
             BottomToolbar(Modifier.fillMaxWidth(), vm, onNewGame, onFinalizeRequested, nav)
         }
     }
-}
-
-@Composable
-private fun Modifier.widthIn(fraction: Float): Modifier {
-    val activity = LocalContext.current as? Activity
-    val sw = activity?.resources?.displayMetrics?.widthPixels ?: 1080
-    return this.width((sw * fraction).toInt().coerceAtLeast(180).dp)
 }
 
 @Composable
