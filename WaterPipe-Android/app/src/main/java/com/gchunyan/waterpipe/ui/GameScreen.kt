@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -42,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
@@ -105,19 +105,8 @@ fun GameScreen(
             .getOrNull()
     }
 
-    // 计算状态栏高度作为顶部 padding（兼容无 WindowInsets.systemBars 的版本）
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val statusBarPx = remember(ctx) {
-        val resId = ctx.resources.getIdentifier("status_bar_height", "dimen", "android")
-        if (resId != 0) ctx.resources.getDimensionPixelSize(resId) else 24
-    }
-    val statusBarDp = with(density) { statusBarPx.toDp() }
-
-    Box(
-        Modifier
-            .fillMaxSize()
-            .padding(top = statusBarDp)
-    ) {
+    // 背景拉伸满屏，覆盖状态栏区域
+    Box(Modifier.fillMaxSize()) {
         bgBitmap?.let {
             Image(bitmap = it, contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
@@ -182,6 +171,9 @@ private fun GameLeftPanel(
                 .padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            // 顶部留空一格，使滚动网格下移
+            Spacer(Modifier.height(24.dp))
+
             Text("分数: ${engine.score}", fontSize = 18.sp,
                 fontWeight = FontWeight.Bold, color = Color(0xFF1976D2))
 
@@ -191,29 +183,34 @@ private fun GameLeftPanel(
             // 滚动格子区域
             // 默认 (queueDirectionUp=false): 向下滚动，当前水管在底部
             // 向上滚动 (queueDirectionUp=true): 当前水管在顶部
-            if (s.queueDirectionUp) {
-                PreviewColumn(vm, s, Modifier.weight(1f, fill = true))
-            } else {
-                PreviewColumnDown(vm, s, Modifier.weight(1f, fill = true))
-            }
+            Box(Modifier.weight(1f, fill = true)) {
+                if (s.queueDirectionUp) {
+                    PreviewColumn(vm, s, Modifier.fillMaxSize())
+                } else {
+                    PreviewColumnDown(vm, s, Modifier.fillMaxSize())
+                }
 
-            // 跳过按钮 - 矩形
-            val txt = if (engine.isInGame && !engine.isFinalizing) "跳过" else "开始注水"
-            Button(
-                onClick = {
-                    if (engine.isInGame && !engine.isFinalizing) {
-                        if (engine.skip()) {
-                            if (s.soundsOn) sound.play(SoundManager.Sfx.TAP, 0.5f * s.volume / 100f)
-                            vm.notifyChanged()
+                // 跳过按钮覆盖在滚动区域最底部
+                val txt = if (engine.isInGame && !engine.isFinalizing) "跳过" else "开始注水"
+                Button(
+                    onClick = {
+                        if (engine.isInGame && !engine.isFinalizing) {
+                            if (engine.skip()) {
+                                if (s.soundsOn) sound.play(SoundManager.Sfx.TAP, 0.5f * s.volume / 100f)
+                                vm.notifyChanged()
+                            }
+                        } else {
+                            onStart()
                         }
-                    } else {
-                        onStart()
-                    }
-                },
-                shape = RectangleShape,
-                modifier = Modifier.fillMaxWidth().height(48.dp)
-            ) {
-                Text(txt, fontSize = 14.sp)
+                    },
+                    shape = RectangleShape,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                        .align(Alignment.BottomCenter)
+                ) {
+                    Text(txt, fontSize = 14.sp)
+                }
             }
         }
     }
