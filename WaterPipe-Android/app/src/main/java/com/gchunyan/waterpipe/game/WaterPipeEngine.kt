@@ -67,8 +67,8 @@ class WaterPipeEngine(
             queue.add(PipeTypes.RANDOM_TAGS[random.nextInt(PipeTypes.RANDOM_TAGS.size)])
         }
 
-        // 水源入口：第 1 行第 3 格 (0,2)，从顶部注入；tag=SOURCE 使 UI 显示 pipe0（入口图）
-        boxes[PipeTypes.SOURCE_INDEX].tag = PipeTypes.SOURCE
+        // 水源入口：第 1 行第 3 格 (0,2)，从顶部注入。该格与其它格一样可被玩家放管道。
+        // 保持 tag=EMPTY，仅设置 inLab='U' 表示水从此格上方流入。
         boxes[PipeTypes.SOURCE_INDEX].addIn(PipeTypes.SOURCE_ENTRY[0])
         waveQueue.add(PipeTypes.SOURCE_INDEX)
     }
@@ -99,8 +99,7 @@ class WaterPipeEngine(
         val tag = currentQueueTagOrNull() ?: return PlaceResult(false, PlaceType.FAIL)
         val box = PipeTypes.boxIndex(row, col)
         val state = boxes[box]
-        // 水源格不允许放管
-        if (box == PipeTypes.SOURCE_INDEX) return PlaceResult(false, PlaceType.FAIL)
+        // 水源格（SOURCE_INDEX）与其它格一样可以放管道（不特殊屏蔽）
 
         // 若该格已有 tag：尝试立交桥合并
         if (state.tag.isNotEmpty() && state.tag != PipeTypes.EMPTY) {
@@ -142,8 +141,7 @@ class WaterPipeEngine(
         for (box in waveQueue.toList()) {
             val st = boxes[box]
             for (entry in st.inLab) {
-                // SOURCE: 水源格 tag 固定，不校验入口包含关系 (入口图无字母)
-                if (st.tag == PipeTypes.SOURCE) continue
+                // 入口存在于该格管道的端口字母中即可；空格(tag=EMPTY)说明玩家没放管 -> 报错
                 if (!st.tag.contains(entry)) {
                     isErr = true
                     errors.add(ErrBox(box, entry))
@@ -305,10 +303,7 @@ class WaterPipeEngine(
                 if ('R' in inLetters) out.add('N' to 'R')
                 if ('U' in inLetters) out.add('E' to 'U')
             }
-            PipeTypes.SOURCE -> {
-                // 水源格：U 是"入口边", 从南出口流出 (下一格), 无实际端口字母限制
-                if ('U' in inLetters) out.add('S' to 'U')
-            }
+            // SOURCE case removed: 水源格 tag 现在由玩家放置，走常规分支
         }
         return out
     }
