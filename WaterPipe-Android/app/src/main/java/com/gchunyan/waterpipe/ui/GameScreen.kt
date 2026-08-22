@@ -1,6 +1,5 @@
 package com.gchunyan.waterpipe.ui
 
-import android.app.Activity
 import android.graphics.BitmapFactory
 import android.graphics.Rect as GRect
 import android.graphics.RectF
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,15 +22,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -70,7 +63,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
 
 @Composable
 fun GameScreen(
@@ -112,10 +104,18 @@ fun GameScreen(
             .getOrNull()
     }
 
+    // 计算状态栏高度作为顶部 padding（兼容无 WindowInsets.systemBars 的版本）
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val statusBarPx = remember(ctx) {
+        val resId = ctx.resources.getIdentifier("status_bar_height", "dimen", "android")
+        if (resId != 0) ctx.resources.getDimensionPixelSize(resId) else 24
+    }
+    val statusBarDp = with(density) { statusBarPx.toDp() }
+
     Box(
         Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.systemBars)
+            .padding(top = statusBarDp)
     ) {
         bgBitmap?.let {
             Image(bitmap = it, contentDescription = null,
@@ -188,10 +188,12 @@ private fun GameLeftPanel(
                 fontWeight = FontWeight.Bold, color = Color(0xFF0D47A1))
 
             // 滚动格子区域
+            // 默认 (queueDirectionUp=false): 向下滚动，当前水管在底部
+            // 向上滚动 (queueDirectionUp=true): 当前水管在顶部
             if (s.queueDirectionUp) {
-                PreviewColumnDown(vm, s, Modifier.weight(1f, fill = true))
-            } else {
                 PreviewColumn(vm, s, Modifier.weight(1f, fill = true))
+            } else {
+                PreviewColumnDown(vm, s, Modifier.weight(1f, fill = true))
             }
 
             // 跳过按钮 - 方形
@@ -217,7 +219,6 @@ private fun GameLeftPanel(
 
 @Composable
 private fun PreviewColumn(vm: GameViewModel, s: AppSettings, mod: Modifier) {
-    val version = vm.gameVersion
     val engine = vm.engine
     Column(mod, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         repeat(PipeTypes.PREVIEW_COUNT) { i ->
@@ -243,10 +244,10 @@ private fun PreviewColumn(vm: GameViewModel, s: AppSettings, mod: Modifier) {
 
 @Composable
 private fun PreviewColumnDown(vm: GameViewModel, s: AppSettings, mod: Modifier) {
-    val version = vm.gameVersion
     val engine = vm.engine
     Column(mod, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        // 向上滚动模式：当前在底部，未来在上方
+        // 向下滚动模式：下一个水管在底部，之前的水管在上方
+        // 显示顺序 (从上到下): [base+4, base+3, base+2, base+1, base]
         repeat(PipeTypes.PREVIEW_COUNT) { i ->
             val base = engine.nowItemNo
             val idx = base + (PipeTypes.PREVIEW_COUNT - 1 - i)
@@ -417,8 +418,6 @@ private fun GridPanel(
         for (@Suppress("UNUSED_VARIABLE") u in ticker) frame++
     }
 
-    val ctx = LocalContext.current
-    val version = vm.gameVersion
     // 原资源 wangge 尺寸 390(W) x 615(H)
     val ratioW = PipeTypes.WANGGE_W.toFloat()
     val ratioH = 615f
