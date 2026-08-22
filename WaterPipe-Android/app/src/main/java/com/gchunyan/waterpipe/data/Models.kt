@@ -17,7 +17,7 @@ data class AppSettings(
     val soundsOn: Boolean = true,
     val isDebug: Boolean = false,
     val infoPanelLeft: Boolean = true,   // isPreLeft
-    val queueDirectionUp: Boolean = true, // isPreListUp
+    val queueDirectionUp: Boolean = false, // isPreListUp，默认向下滚动
     val homeAction: HomeAction = HomeAction.CLOSE,
     val lastPlayerName: String = "新玩家"
 )

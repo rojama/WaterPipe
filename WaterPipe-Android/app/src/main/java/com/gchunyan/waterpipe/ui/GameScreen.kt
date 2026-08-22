@@ -115,6 +115,7 @@ fun GameScreen(
     Box(
         Modifier
             .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.systemBars)
     ) {
         bgBitmap?.let {
             Image(bitmap = it, contentDescription = null,
@@ -171,7 +172,7 @@ private fun GameLeftPanel(
         yulang?.let {
             Image(bitmap = it, contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds)
+                contentScale = ContentScale.Fit)
         }
 
         Column(
@@ -180,19 +181,20 @@ private fun GameLeftPanel(
                 .padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            val version = vm.gameVersion
-
             Text("分数: ${engine.score}", fontSize = 18.sp,
                 fontWeight = FontWeight.Bold, color = Color(0xFF1976D2))
 
-            Text("剩余: ${engine.remaining}", fontSize = 16.sp, color = Color(0xFF0D47A1))
+            Text("剩余: ${engine.remaining}", fontSize = 18.sp,
+                fontWeight = FontWeight.Bold, color = Color(0xFF0D47A1))
 
+            // 滚动格子区域
             if (s.queueDirectionUp) {
-                PreviewColumn(vm, s, Modifier.weight(1f, fill = false))
+                PreviewColumnDown(vm, s, Modifier.weight(1f, fill = true))
             } else {
-                PreviewColumnDown(vm, s, Modifier.weight(1f, fill = false))
+                PreviewColumn(vm, s, Modifier.weight(1f, fill = true))
             }
 
+            // 跳过按钮 - 方形
             val txt = if (engine.isInGame && !engine.isFinalizing) "跳过" else "开始注水"
             Button(
                 onClick = {
@@ -205,9 +207,9 @@ private fun GameLeftPanel(
                         onStart()
                     }
                 },
-                modifier = Modifier.fillMaxWidth().height(52.dp)
+                modifier = Modifier.size(56.dp)
             ) {
-                Text(txt, fontSize = 14.sp)
+                Text(txt, fontSize = 12.sp)
             }
         }
     }
@@ -244,10 +246,11 @@ private fun PreviewColumnDown(vm: GameViewModel, s: AppSettings, mod: Modifier) 
     val version = vm.gameVersion
     val engine = vm.engine
     Column(mod, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // 向上滚动模式：当前在底部，未来在上方
         repeat(PipeTypes.PREVIEW_COUNT) { i ->
             val base = engine.nowItemNo
-            val idx = base - PipeTypes.PREVIEW_COUNT + 1 + i
-            val tag = engine.queue.getOrNull(idx) ?: engine.queue.getOrNull(i)
+            val idx = base + (PipeTypes.PREVIEW_COUNT - 1 - i)
+            val tag = engine.queue.getOrNull(idx)
             val resId = tagToDrawableRes(tag)
             Box(
                 Modifier
@@ -467,9 +470,13 @@ private fun CellView(
     onClick: () -> Unit
 ) {
     val state = vm.engine.boxes[box]
+    val isFinalizing = vm.engine.isFinalizing
     val ctx = LocalContext.current
     val tag = state.tag
-    val resId = remember(tag) { tagToDrawableRes(ctx, tag) }
+
+    // 水源格在游戏中不显示管道图，注水时才显示
+    val displayTag = if (tag == PipeTypes.SOURCE && !isFinalizing) PipeTypes.EMPTY else tag
+    val resId = remember(displayTag) { tagToDrawableRes(ctx, displayTag) }
 
     Box(
         mod

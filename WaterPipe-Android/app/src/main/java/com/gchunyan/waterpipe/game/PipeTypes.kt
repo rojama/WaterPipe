@@ -77,25 +77,49 @@ object PipeTypes {
         else -> null
     }
 
-    /** 立交桥合并：旧 tag + 新 tag 为互补对角则升级为双弧立交桥。
-     * 修复原实现仅有两处硬编码的限制，同时保留对称性。*/
+    /** 立交桥合并：旧 tag + 新 tag 方向互补则升级。
+     * 规则：
+     *  1. 两个半弧（如 LU+RD 或 LD+RU）→ 合并为双弧立交 (LURD_BACK / LURD_SLASH)
+     *  2. 已有完整管 (LURD/LURDX) 不与任何管合并
+     *  3. 方向有重叠的半弧不合并 → 替换 + 玻璃破碎音效
+     *  4. 两个双弧立交 (BACK+SLASH) 方向不重叠 → 升级为桥梁 LURDX */
     fun mergeIfCompatible(oldTag: String, newTag: String): String? {
-        val s = (oldTag + newTag).toSortedSet().joinToString("")
-        return when (s) {
-            "LURD" -> {
-                val oldDirs = oldTag.toSet()
-                // LU + RD = LURD\  （对角 \）
-                if ((oldDirs.contains('L') && oldDirs.contains('U')) ||
-                    (oldDirs.contains('R') && oldDirs.contains('D'))) {
+        val oldDirs = oldTag.toSet()
+        val newDirs = newTag.toSet()
+
+        // 已有完整十字管或桥梁，不合并
+        if (oldTag == LURD || oldTag == LURDX ||
+            newTag == LURD || newTag == LURDX) return null
+
+        // Case 1: 两个半弧方向互补 → 合并为双弧立交
+        val unionSet = oldDirs union newDirs
+        if (unionSet == setOf('L', 'U', 'R', 'D')) {
+            // 必须方向不重叠
+            val intersection = oldDirs intersect newDirs
+            if (intersection.isEmpty()) {
+                // LU+RD → BACK，LD+RU → SLASH
+                return if (oldDirs.contains('L') && oldDirs.contains('U')) {
                     LURD_BACK
-                }
-                // LD + RU = LURD/  （对角 /）
-                else {
+                } else if (oldDirs.contains('R') && oldDirs.contains('D')) {
+                    LURD_BACK
+                } else {
                     LURD_SLASH
                 }
             }
-            else -> null
+            // 有方向重叠，不合并
+            return null
         }
+
+        // Case 2: 两个双弧立交方向不重叠 → 升级为桥梁
+        // BACK arcs: {L,U} + {R,D}
+        // SLASH arcs: {L,D} + {R,U}
+        // BACK + SLASH: arcs don't overlap → bridge LURDX
+        if ((oldTag == LURD_BACK && newTag == LURD_SLASH) ||
+            (oldTag == LURD_SLASH && newTag == LURD_BACK)) {
+            return LURDX
+        }
+
+        return null
     }
 
     /** 单格计分：严格按原 README 规则。*/
