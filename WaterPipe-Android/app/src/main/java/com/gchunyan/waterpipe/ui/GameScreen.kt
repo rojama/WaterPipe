@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -196,7 +197,7 @@ private fun GameLeftPanel(
                 PreviewColumnDown(vm, s, Modifier.weight(1f, fill = true))
             }
 
-            // 跳过按钮 - 方形
+            // 跳过按钮 - 矩形
             val txt = if (engine.isInGame && !engine.isFinalizing) "跳过" else "开始注水"
             Button(
                 onClick = {
@@ -209,9 +210,10 @@ private fun GameLeftPanel(
                         onStart()
                     }
                 },
-                modifier = Modifier.size(56.dp)
+                shape = RectangleShape,
+                modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
-                Text(txt, fontSize = 12.sp)
+                Text(txt, fontSize = 14.sp)
             }
         }
     }
@@ -220,6 +222,7 @@ private fun GameLeftPanel(
 @Composable
 private fun PreviewColumn(vm: GameViewModel, s: AppSettings, mod: Modifier) {
     val engine = vm.engine
+    @Suppress("UNUSED_VARIABLE") val version = vm.gameVersion  // 读取 Compose state 触发重组
     Column(mod, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         repeat(PipeTypes.PREVIEW_COUNT) { i ->
             val base = engine.nowItemNo
@@ -245,6 +248,7 @@ private fun PreviewColumn(vm: GameViewModel, s: AppSettings, mod: Modifier) {
 @Composable
 private fun PreviewColumnDown(vm: GameViewModel, s: AppSettings, mod: Modifier) {
     val engine = vm.engine
+    @Suppress("UNUSED_VARIABLE") val version = vm.gameVersion  // 读取 Compose state 触发重组
     Column(mod, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         // 向下滚动模式：下一个水管在底部，之前的水管在上方
         // 显示顺序 (从上到下): [base+4, base+3, base+2, base+1, base]
@@ -470,6 +474,7 @@ private fun CellView(
     anim: AnimationState,
     onClick: () -> Unit
 ) {
+    val version = vm.gameVersion  // 读取 Compose state 触发重组
     val state = vm.engine.boxes[box]
     val isFinalizing = vm.engine.isFinalizing
     val ctx = LocalContext.current
