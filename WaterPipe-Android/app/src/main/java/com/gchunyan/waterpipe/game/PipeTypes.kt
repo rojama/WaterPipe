@@ -91,26 +91,27 @@ object PipeTypes {
         if (oldTag == LURD || oldTag == LURDX ||
             newTag == LURD || newTag == LURDX) return null
 
-        // Case 1: 两个半弧方向互补 → 合并为双弧立交
+        // Case 1: 两个管道方向不重叠，合起来恰好 {L,U,R,D} → 可合并
         val unionSet = oldDirs union newDirs
         if (unionSet == setOf('L', 'U', 'R', 'D')) {
-            // 必须方向不重叠
             val intersection = oldDirs intersect newDirs
-            if (intersection.isEmpty()) {
-                // LU+RD → BACK，LD+RU → SLASH
-                return if (oldDirs.contains('L') && oldDirs.contains('U')) {
-                    LURD_BACK
-                } else if (oldDirs.contains('R') && oldDirs.contains('D')) {
-                    LURD_BACK
-                } else {
-                    LURD_SLASH
-                }
+            if (intersection.isNotEmpty()) {
+                return null  // 方向重叠，不合并
             }
-            // 有方向重叠，不合并
-            return null
+
+            // 区分：两直管(LR+UD) → 十字 LURD；两半弧 → 双弧立交
+            val isStraight = oldDirs == setOf('L', 'R') || oldDirs == setOf('U', 'D')
+            if (isStraight) {
+                return LURD  // 直管交叉 → 十字
+            }
+
+            // 两半弧：LU+RD → BACK，LD+RU → SLASH
+            val isBack = (oldDirs.contains('L') && oldDirs.contains('U')) ||
+                         (oldDirs.contains('R') && oldDirs.contains('D'))
+            return if (isBack) LURD_BACK else LURD_SLASH
         }
 
-        // Case 2: 两个双弧立交方向不重叠 → 升级为桥梁
+        // Case 2: 两个双弧立交方向不重叠 → 升级为桥梁 LURDX
         // BACK arcs: {L,U} + {R,D}
         // SLASH arcs: {L,D} + {R,U}
         // BACK + SLASH: arcs don't overlap → bridge LURDX

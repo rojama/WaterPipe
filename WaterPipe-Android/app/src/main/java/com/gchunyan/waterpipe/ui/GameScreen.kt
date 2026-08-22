@@ -347,6 +347,8 @@ private fun startFinalFlow(
         val localReset = resetKey.value
         runCatching {
             vm.engine.beginFinalization()
+            // 触发 UI 重新组合，使 CellView 能读取 isFinalizing=true，显示水源入口图
+            withContext(Dispatchers.Main) { vm.notifyChanged() }
             if (vm.settings.value.soundsOn) sound.play(SoundManager.Sfx.WATER, vm.settings.value.volume / 100f, loop = true)
 
             while (localReset == resetKey.value && !vm.engine.isErr && vm.engine.waveQueue.isNotEmpty()) {
