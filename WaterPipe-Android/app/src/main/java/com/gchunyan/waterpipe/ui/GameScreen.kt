@@ -116,7 +116,6 @@ fun GameScreen(
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.weight(1f, fill = true)) {
                 GameLeftPanel(Modifier
-                    .fillMaxHeight()
                     .weight(PipeTypes.YULANG_W.toFloat(), fill = false), vm, settings, sound, onFinalizeRequested, onNewGame,
                     yulangBitmap)
 
@@ -158,10 +157,10 @@ private fun GameLeftPanel(
     val engine = vm.engine
 
     Box(mod) {
-        // yulang 背景：按原始比例 90:615 不拉伸，高度填满，宽度按比例缩放
+        // yulang 背景：高度与内容一致（分数区+滚动格+跳过按钮），不纵向拉伸，顶部对齐
         yulang?.let {
             Image(bitmap = it, contentDescription = null,
-                modifier = Modifier.fillMaxHeight().fillMaxWidth(),
+                modifier = Modifier.matchParentSize(),
                 contentScale = ContentScale.FillHeight,
                 alignment = Alignment.TopCenter)
         }
@@ -180,11 +179,11 @@ private fun GameLeftPanel(
             Text("剩余: ${engine.remaining}", fontSize = 18.sp,
                 fontWeight = FontWeight.Bold, color = Color(0xFF0D47A1))
 
-            // 滚动预览5格：顶端对齐，不拉伸
+            // 滚动预览5格：按固定正方形尺寸排列，不拉伸
             if (s.queueDirectionUp) {
-                PreviewColumn(vm, s, Modifier.weight(1f, fill = false))
+                PreviewColumn(vm, s, Modifier)
             } else {
-                PreviewColumnDown(vm, s, Modifier.weight(1f, fill = false))
+                PreviewColumnDown(vm, s, Modifier)
             }
 
             // 跳过按钮紧挨滚动格子下方
