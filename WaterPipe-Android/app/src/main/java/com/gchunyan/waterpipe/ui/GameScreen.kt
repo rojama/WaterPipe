@@ -320,13 +320,16 @@ private fun BottomToolbar(
 
 class AnimationState {
     data class SegmentProgress(val from: Char, val to: Char, var frame: Int, val totalFrames: Int)
+    /** 当前正在播放水流动画的格子。每波动画结束即被移入 [doneSegments]。 */
     val segments: MutableMap<Int, MutableList<SegmentProgress>> = mutableMapOf()
+    /** 已注水完成的格子 → 常显水纹动画段（frame 固定为最终帧，不再被后续波清除）。 */
+    val doneSegments: MutableMap<Int, MutableList<SegmentProgress>> = mutableMapOf()
     var errSplashStep = 0
     var errBoxes: List<Pair<Int, Char>> = emptyList()
     var perfectBonusShown = false
 
     fun clear() {
-        segments.clear(); errBoxes = emptyList(); errSplashStep = -1; perfectBonusShown = false
+        segments.clear(); doneSegments.clear(); errBoxes = emptyList(); errSplashStep = -1; perfectBonusShown = false
     }
 }
 
@@ -352,10 +355,14 @@ private fun startFinalFlow(
                 if (!result.progressed) break
 
                 anim.segments.clear()
-                for (plan in result.animatedBoxes) {
-                    anim.segments[plan.box] = plan.segments.map { (a, b) ->
+                val wavePlans = result.animatedBoxes
+                val transient = HashMap<Int, MutableList<AnimationState.SegmentProgress>>()
+                for (plan in wavePlans) {
+                    val segs = plan.segments.map { (a, b) ->
                         AnimationState.SegmentProgress(a, b, 0, PipeTypes.ANIM_FRAMES)
                     }.toMutableList()
+                    transient[plan.box] = segs
+                    anim.segments[plan.box] = segs
                 }
 
                 for (f in 1..PipeTypes.ANIM_FRAMES) {
@@ -364,7 +371,15 @@ private fun startFinalFlow(
                     ticker.trySend(Unit)
                     delay(PipeTypes.ANIM_FRAME_MS)
                 }
+
+                // 本波动画播放完：把已注水的格子固定为最终帧并登记为常显，后续波不再清除
+                for ((box, segs) in transient) {
+                    segs.forEach { it.frame = PipeTypes.ANIM_FRAMES }
+                    anim.doneSegments[box] = segs
+                }
             }
+            // 清除瞬态动画段，避免残留；常显水纹放在 doneSegments 中继续显示
+            anim.segments.clear()
 
             if (vm.engine.isErr) {
                 sound.play(SoundManager.Sfx.WARNING, vm.settings.value.volume / 100f, loop = false)
@@ -492,7 +507,9 @@ private fun CellView(
         }
 
         // frame 读取触发每帧重组（动画渲染）
-        val segs = if (frame >= 0 && anim.segments.containsKey(box)) anim.segments[box] else null
+        val doing = anim.segments[box]
+        val done = anim.doneSegments[box]
+        val segs = if (frame >= 0) (doing ?: done) else null
         if (segs != null) {
             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
                 drawWaterOverlay(segs, tag, this)
