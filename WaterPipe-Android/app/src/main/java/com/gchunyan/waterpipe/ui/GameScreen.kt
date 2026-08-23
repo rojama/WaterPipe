@@ -126,7 +126,6 @@ fun GameScreen(
                             val res = vm.engine.putImage(r, c)
                             if (res.ok && settings.soundsOn) {
                                 val sfx = when (res.type) {
-                                    WaterPipeEngine.PlaceType.MERGE -> SoundManager.Sfx.MERGE
                                     WaterPipeEngine.PlaceType.REPLACE -> SoundManager.Sfx.BREAK
                                     else -> SoundManager.Sfx.PLACE
                                 }
@@ -159,12 +158,11 @@ private fun GameLeftPanel(
     val engine = vm.engine
 
     Box(mod) {
-        // yulang 背景：不拉伸，保持原比例顶端对齐
+        // yulang 背景涵盖整个左侧区域（滚动区+按钮区）
         yulang?.let {
             Image(bitmap = it, contentDescription = null,
-                modifier = Modifier.fillMaxHeight().fillMaxWidth(),
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.TopCenter)
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds)
         }
 
         // 内容层：与 yulang 背景顶端对齐
@@ -412,7 +410,7 @@ private fun GridPanel(
 ) {
     var frame by remember { mutableStateOf(0L) }
     LaunchedEffect(Unit) {
-        for (@Suppress("UNUSED_VARIABLE") u in ticker) frame++
+        for (u in ticker) frame++
     }
 
     // 原资源 wangge 尺寸 390(W) x 615(H)
@@ -426,9 +424,9 @@ private fun GridPanel(
             val widthFromHeight = maxH * (ratioW / ratioH)
             val heightFromWidth = maxW * (ratioH / ratioW)
             val target: androidx.compose.ui.unit.DpSize = if (widthFromHeight <= maxW) {
-                androidx.compose.ui.unit.DpSize(widthFromHeight, maxH)   // 以高度为准 (竖直方向占满, 横屏时两侧留空)
+                androidx.compose.ui.unit.DpSize(widthFromHeight, maxH)
             } else {
-                androidx.compose.ui.unit.DpSize(maxW, heightFromWidth)   // 否则以宽度为准 (高窄屏时上下留空)
+                androidx.compose.ui.unit.DpSize(maxW, heightFromWidth)
             }
             Box(Modifier.size(target.width, target.height)) {
                 wangge?.let {
@@ -446,6 +444,7 @@ private fun GridPanel(
                                     box = box,
                                     vm = vm,
                                     anim = anim,
+                                    frame = frame,
                                     onClick = {
                                         if (!vm.engine.isFinalizing) onCellClick(r, c)
                                     }
@@ -465,6 +464,7 @@ private fun CellView(
     box: Int,
     vm: GameViewModel,
     anim: AnimationState,
+    frame: Long,
     onClick: () -> Unit
 ) {
     val version = vm.gameVersion  // 读取 Compose state 触发重组
@@ -491,9 +491,11 @@ private fun CellView(
             )
         }
 
-        if (anim.segments.containsKey(box)) {
+        // frame 读取触发每帧重组（动画渲染）
+        val segs = if (frame >= 0 && anim.segments.containsKey(box)) anim.segments[box] else null
+        if (segs != null) {
             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                drawWaterOverlay(anim.segments[box] ?: emptyList(), this)
+                drawWaterOverlay(segs, this)
             }
         }
 
@@ -662,37 +664,22 @@ private fun DrawScope.drawSegmentUsingAtlas(
     }
 
     if (isStraightOpposite) {
-        // 直管: 前8帧入口→中心(叠加), 后7帧中心→出口(叠加)
-        if (frame <= halfFrame) {
-            // 前半段：从入口端叠加切片
-            val subFrame = (frame * 2 - 1).coerceAtMost(15)
-            drawLineAccumulated(portToFlow(from, isEntry = true), subFrame)
-        } else {
-            // 入口端完全铺满
-            drawLineAccumulated(portToFlow(from, isEntry = true), 15)
-            // 出口端逐步叠加
-            val exitFrame = ((frame - halfFrame) * 2 - 1).coerceAtMost(15)
-            drawLineAccumulated(portToFlow(to, isEntry = false), exitFrame)
-        }
+        // 直管: 单方向 15 帧叠加，从入口端到出口端完整填充
+        // LR: 'E' 从左到右; RL: 'W' 从右到左; UD: 'S' 从上到下; DU: 'N' 从下到上
+        drawLineAccumulated(portToFlow(from, isEntry = true), frame)
         return
     }
 
-    // 弯管：入口直线 + 弧线 + 出口直线，各段叠加
-    val entryMaxFrame: Int
-    val arcMaxFrame: Int
-
+    // 弯管：入口直线(半格) + 弧线(中心弯) + 出口直线(半格)，各段叠加
+    // 前8帧: 入口端从端口到中心(7帧) + 弧线从端口到中心
+    // 后7帧: 入口端满 + 弧线满 + 出口端从中心到端口
     if (frame <= halfFrame) {
-        // 前半帧：入口端叠加 + 弧线叠加
-        entryMaxFrame = (frame * 2 - 1).coerceAtMost(15)
-        arcMaxFrame = entryMaxFrame
-        drawLineAccumulated(portToFlow(from, isEntry = true), entryMaxFrame)
-        drawArcAccumulated(from, to, arcMaxFrame)
+        val subFrame = (frame * 2 - 1).coerceAtMost(15)
+        drawLineAccumulated(portToFlow(from, isEntry = true), subFrame)
+        drawArcAccumulated(from, to, subFrame)
     } else {
-        // 后半帧：入口端全满 + 弧线全满 + 出口端叠加
-        entryMaxFrame = 15
-        arcMaxFrame = 15
-        drawLineAccumulated(portToFlow(from, isEntry = true), entryMaxFrame)
-        drawArcAccumulated(from, to, arcMaxFrame)
+        drawLineAccumulated(portToFlow(from, isEntry = true), 15)
+        drawArcAccumulated(from, to, 15)
         val exitFrame = ((frame - halfFrame) * 2 - 1).coerceAtMost(15)
         drawLineAccumulated(portToFlow(to, isEntry = false), exitFrame)
     }

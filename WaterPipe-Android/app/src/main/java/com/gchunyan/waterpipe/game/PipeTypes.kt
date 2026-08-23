@@ -105,9 +105,10 @@ object PipeTypes {
                 return LURD  // 直管交叉 → 十字
             }
 
-            // 两半弧：LU+RD → BACK，LD+RU → SLASH
-            val isBack = (oldDirs.contains('L') && oldDirs.contains('U')) ||
-                         (oldDirs.contains('R') && oldDirs.contains('D'))
+            // 两半弧：LU+RD → SLASH(/)，LD+RU → BACK(\)
+            // LURD_BACK(\) = arcs {L,D}+{R,U}; LURD_SLASH(/) = arcs {L,U}+{R,D}
+            val isBack = (oldDirs.contains('L') && oldDirs.contains('D')) ||
+                         (oldDirs.contains('R') && oldDirs.contains('U'))
             return if (isBack) LURD_BACK else LURD_SLASH
         }
 
