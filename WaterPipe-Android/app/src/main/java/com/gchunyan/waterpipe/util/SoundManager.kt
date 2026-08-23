@@ -27,19 +27,20 @@ class SoundManager(private val context: Context) {
     }
 
     private val sfxIds: MutableMap<Sfx, Int> = EnumMap(Sfx::class.java)
-    private var loadedCount = 0
+    private val loadedIds: MutableSet<Int> = mutableSetOf()
 
     init {
+        pool.setOnLoadCompleteListener { _, sampleId, _ -> loadedIds.add(sampleId) }
+        // 预加载所有音效
         for (sfx in Sfx.values()) {
-            pool.load(context, sfx.resId, 1)
+            sfxIds[sfx] = pool.load(context, sfx.resId, 1)
         }
-        pool.setOnLoadCompleteListener { _, _, _ -> loadedCount++ }
     }
 
-    /** 播放一次。volumeScale 0..1；soundsOn=false 时不播放。*/
+    /** 播放一次。volumeScale 0..1。*/
     fun play(sfx: Sfx, volumeScale: Float = 1f, loop: Boolean = false) {
-        if (loadedCount < Sfx.values().size) return
-        val sid = sfxIds.getOrPut(sfx) { pool.load(context, sfx.resId, 1) }
+        val sid = sfxIds[sfx] ?: return
+        if (sid !in loadedIds) return  // 音效还没加载完, 跳过
         val actual = (volumeScale.coerceIn(0f, 1f)) * (am.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() /
                 am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toFloat().coerceAtLeast(1f))
         pool.play(sid, actual, actual, 1, if (loop) -1 else 0, 1f)

@@ -158,63 +158,55 @@ private fun GameLeftPanel(
 ) {
     val engine = vm.engine
 
-    BoxWithConstraints(mod) {
-        // yulang 背景：按 wangge 高度基准等比缩放，顶端对齐
+    Box(mod) {
+        // yulang 背景：不拉伸，保持原比例顶端对齐
         yulang?.let {
             Image(bitmap = it, contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds)
+                modifier = Modifier.fillMaxHeight().fillMaxWidth(),
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.TopCenter)
         }
 
-        // 内容层：按 yulang 原图坐标比例定位
+        // 内容层：与 yulang 背景顶端对齐
         Column(
             Modifier
-                .fillMaxHeight()
-                .padding(top = 0.dp)
-                .padding(horizontal = 10.dp)
+                .fillMaxSize()
+                .padding(horizontal = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // 分数区（yulang 顶部 0~60px）
+            // 分数区
             Text("分数: ${engine.score}", fontSize = 18.sp,
                 fontWeight = FontWeight.Bold, color = Color(0xFF1976D2))
 
             Text("剩余: ${engine.remaining}", fontSize = 18.sp,
                 fontWeight = FontWeight.Bold, color = Color(0xFF0D47A1))
 
-            Spacer(Modifier.height(14.dp))
+            // 滚动预览5格：顶端对齐，不拉伸
+            if (s.queueDirectionUp) {
+                PreviewColumn(vm, s, Modifier.weight(1f, fill = false))
+            } else {
+                PreviewColumnDown(vm, s, Modifier.weight(1f, fill = false))
+            }
 
-            // 滚动网格区域 + 跳过按钮 (整体与右侧 wangge 顶端对齐)
-            Box(Modifier.fillMaxHeight().weight(1f, fill = false)) {
-                Column(Modifier.fillMaxSize()) {
-                    // 预览5格在顶端对齐显示 (不拉伸, 权重为滚动区)
-                    Box(Modifier.weight(1f, fill = false).fillMaxWidth()) {
-                        if (s.queueDirectionUp) {
-                            PreviewColumn(vm, s, Modifier.fillMaxSize())
-                        } else {
-                            PreviewColumnDown(vm, s, Modifier.fillMaxSize())
+            // 跳过按钮紧挨滚动格子下方
+            val txt = if (engine.isInGame && !engine.isFinalizing) "跳过" else "开始注水"
+            Button(
+                onClick = {
+                    if (engine.isInGame && !engine.isFinalizing) {
+                        if (engine.skip()) {
+                            if (s.soundsOn) sound.play(SoundManager.Sfx.TAP, 0.5f * s.volume / 100f)
+                            vm.notifyChanged()
                         }
+                    } else {
+                        onStart()
                     }
-
-                    // 跳过按钮在滚动格子下方(背景内底部)
-                    val txt = if (engine.isInGame && !engine.isFinalizing) "跳过" else "开始注水"
-                    Button(
-                        onClick = {
-                            if (engine.isInGame && !engine.isFinalizing) {
-                                if (engine.skip()) {
-                                    if (s.soundsOn) sound.play(SoundManager.Sfx.TAP, 0.5f * s.volume / 100f)
-                                    vm.notifyChanged()
-                                }
-                            } else {
-                                onStart()
-                            }
-                        },
-                        shape = RectangleShape,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(40.dp)
-                    ) {
-                        Text(txt, fontSize = 14.sp)
-                    }
-                }
+                },
+                shape = RectangleShape,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    horizontal = 4.dp, vertical = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(txt, fontSize = 12.sp, maxLines = 1)
             }
         }
     }
@@ -534,10 +526,13 @@ private fun DrawScope.drawWaterOverlay(
 }
 
 /**
- * 按原 M8 AllWater.png 素材 (15帧 SubLineAnimo + SubArcAnimo) 绘制单段流水 from->to。
- *  - 直管(对侧): 两段 SubLineAnimo, 前8帧入口->中心, 后7帧中心->出口
- *  - 半管(from==to): 单段 SubLineAnimo 1..frame 铺入
- *  - 弯管(非对侧):  SubLineAnimo(端口条) + SubArcAnimo(弯弧) 联合 15 帧铺满
+ * 按原 M8 AllWater.png 素材渲染流水 from->to。
+ * 关键：每一帧都叠加渲染 1..frame 的所有切片，形成从入口到出口逐步推进的完整水流。
+ *  不是只画当前位置的窄条，而是把之前所有帧的切片都画上去（叠加累积）。
+ *
+ *  - 直管(对侧 LR/UD): SubLineAnimo 切片叠加，前半帧入口→中心，后半帧中心→出口
+ *  - 半管(from==to): SubLineAnimo 切片叠加 1..frame
+ *  - 弯管(非对侧): SubLineAnimo(端口→中心) + SubArcAnimo(弧线) 切片叠加
  */
 private fun DrawScope.drawSegmentUsingAtlas(
     atlas: android.graphics.Bitmap,
@@ -557,117 +552,100 @@ private fun DrawScope.drawSegmentUsingAtlas(
                              (from == 'U' && to == 'D') || (from == 'D' && to == 'U')
     val isHalfPipe = (from == to)
 
-    // SubLineAnimo 条尺寸: src 5x75 (横流) 或 75x5 (竖流). dst 按 cell/75 缩放.
-    val barW_h = 5f * cellW / 75f   // 横流: 条宽(水平条的水平厚度)
-    val barH_h = cellH              // 横流: 条高
-    val barW_v = cellW              // 竖流: 条宽
-    val barH_v = 5f * cellH / 75f   // 竖流: 条高(垂直条的竖直厚度)
+    val sx = cellW / 75f
+    val sy = cellH / 75f
 
-    /** 使用 lineSrcRect (来自 AllWater row 4) 画一条 SubLineAnimo 的 frame 前沿窄条。
-     *  flowChar: 'E' / 'W' / 'S' / 'N' 与原 M8 SubLineAnimo 方向一致 */
-    fun drawLineBar(flowChar: Char, f: Int) {
+    /** 画一条 SubLineAnimo 切片 (单帧 f)，从端口到对应位置。
+     *  flowChar: 'E'=从左向右 'W'=从右向左 'S'=从上向下 'N'=从下向上 */
+    fun drawLineSlice(flowChar: Char, f: Int) {
         if (f <= 0 || f > 15) return
         srcRect.set(WaterAnimBitmap.lineSrcRect(flowChar, f))
-        // 计算条在 cell 内的位置：15 帧时整格铺满 (前沿 = 端口 -> 中心 / 中心 -> 端口)
-        val x: Float
-        val y: Float
-        val w: Float
-        val h: Float
-        val t = (f - 1) / 14f   // 0..1 表示从起始到对侧
+        // 原图每帧 5px 宽，对应 cell 内 5*sx dp
         when (flowChar) {
-            'E' -> { // 从左边界向右画
-                x = (cellW - barW_h) * t
-                y = 0f
-                w = barW_h
-                h = barH_h
+            'E' -> { // 水从左向右: 第 f 帧的切片在 x = (f-1)*5*sx 位置
+                val x = (f - 1) * 5f * sx
+                val w = 5f * sx
+                val h = cellH
+                dstRect.set(x, 0f, x + w, h)
             }
-            'W' -> { // 从右边界向左画
-                x = cellW - barW_h - (cellW - barW_h) * t
-                y = 0f
-                w = barW_h
-                h = barH_h
+            'W' -> { // 水从右向左: 切片从右边开始
+                val x = cellW - f * 5f * sx
+                val w = 5f * sx
+                val h = cellH
+                dstRect.set(x, 0f, x + w, h)
             }
-            'S' -> { // 从上边界向下画
-                x = 0f
-                y = (cellH - barH_v) * t
-                w = barW_v
-                h = barH_v
+            'S' -> { // 水从上向下
+                val y = (f - 1) * 5f * sy
+                val w = cellW
+                val h = 5f * sy
+                dstRect.set(0f, y, w, y + h)
             }
-            'N' -> { // 从下边界向上画
-                x = 0f
-                y = cellH - barH_v - (cellH - barH_v) * t
-                w = barW_v
-                h = barH_v
+            'N' -> { // 水从下向上
+                val y = cellH - f * 5f * sy
+                val w = cellW
+                val h = 5f * sy
+                dstRect.set(0f, y, w, y + h)
             }
-            else -> { x = 0f; y = 0f; w = 0f; h = 0f }
         }
-        dstRect.set(x, y, x + w, y + h)
         drawContext.canvas.nativeCanvas.drawBitmap(atlas, srcRect, dstRect, paint.asFrameworkPaint())
     }
 
-    /** 用 SubArcAnimo (AllWater 1..3 行) 画一条弯管 from<->to 的弧线。*/
-    fun drawArcBar(portA: Char, portB: Char, f: Int) {
-        if (f <= 0 || f > 15) return
-        val s = WaterAnimBitmap.arcSrcRect(portA, portB, f)
-        srcRect.set(s)
-        // arcSrcRect 返回的源矩形是从弧的"端口侧外端"到"中心"的弧线切片。
-        // 在 75x75 tile 中, arc 条的源位置 y∈[17..41] (中段)
-        // 我们把它等比缩放并贴到对应象限的弯管区域:
-        //  四个弯管象限: LU (左上), RU (右上), LD (左下), RD (右下)
-        // 每个象限是 cell 的 25%~50% 中心区域 (弧线从外边到中心弯)
-        // 对于每一帧 f, arcSrcRect 的 x 偏移在 tile 范围内, 所以采样出的是弧的一小段;
-        // 我们把这段画到对应象限内的 (1-f/15) 表示越靠近中心.
-        val t = (f - 1) / 14f   // 0 (端口附近) -> 1 (中心)
-        val sx = cellW / 75f
-        val sy = cellH / 75f
-        val srcW = srcRect.width().toFloat()
-        val srcH = srcRect.height().toFloat()
-        if (srcW <= 0 || srcH <= 0) return
+    /** 叠加画 1..maxFrame 的所有 SubLineAnimo 切片 */
+    fun drawLineAccumulated(flowChar: Char, maxFrame: Int) {
+        for (f in 1..maxFrame) {
+            drawLineSlice(flowChar, f)
+        }
+    }
 
-        // 每个弯管组合对应的中心象限: 将 75x75 的 tile 的弯管条映射到 cell 对应的半段
-        // a1=17, a2=41: arc条中心宽度, 对应 tile 中心附近
-        // 将 arc 条当成位于 cell 中心轴上的一条带, 具体平移根据组合
+    /** 画一条 SubArcAnimo 切片 (单帧 f) */
+    fun drawArcSlice(portA: Char, portB: Char, f: Int) {
+        if (f <= 0 || f > 15) return
+        srcRect.set(WaterAnimBitmap.arcSrcRect(portA, portB, f))
+        // arc 切片在原图中 x = TILE*(f-1)+17 .. TILE*(f-1)+41, y = row_y+17..row_y+41
+        // 24x24 像素的弧形切片，映射到 cell 对应象限
+        val arcSrcX = 75 * (f - 1) + 17
+        val dstW = 24f * sx
+        val dstH = 24f * sy
+
+        // 按弯管方向决定弧线在 cell 中的位置
         val pair = setOf(portA, portB)
-        val centerX = cellW / 2f
-        val centerY = cellH / 2f
-        // dst 弧条: 先按比例缩放为 ~ dstW x dstH (与 src 相同方向)
-        val dstW = srcW * sx
-        val dstH = srcH * sy
-        // 弯管弧线: 原 M8 的 SubArcAnimo 在 tile 的 arc 条绘制时,
-        // frame 1 = 最靠近端口端, frame 15 = 最靠近中心端.
-        // 我们直接将 arc bar 放到对应象限的 "中心附近 + 向端口外 t=0"
         val cx: Float
         val cy: Float
         when {
             pair == setOf('L', 'D') -> {
-                // 左下方的弯: 中心在 (cellW*0.25, cellH*0.75) 附近 -> 移动到中心左下象限
-                // frame 1 在端口端: L端=x=0附近, D端=y=cellH附近
-                // frame 15 在中心
-                cx = centerX - (1f - t) * (cellW * 0.40f)  // 越远越靠左
-                cy = centerY + (1f - t) * (cellH * 0.40f)  // 越远越靠下
+                // 左下弯管：弧从左侧中部弯到下方中部
+                cx = (arcSrcX + 12 - 37.5f) * sx + cellW / 2f
+                cy = cellH / 2f + 12f * sy  // 偏下
             }
             pair == setOf('L', 'U') -> {
-                cx = centerX - (1f - t) * (cellW * 0.40f)
-                cy = centerY - (1f - t) * (cellH * 0.40f)
+                cx = (arcSrcX + 12 - 37.5f) * sx + cellW / 2f
+                cy = cellH / 2f - 12f * sy  // 偏上
             }
             pair == setOf('R', 'U') -> {
-                cx = centerX + (1f - t) * (cellW * 0.40f)
-                cy = centerY - (1f - t) * (cellH * 0.40f)
+                cx = (arcSrcX + 12 - 37.5f) * sx + cellW / 2f
+                cy = cellH / 2f - 12f * sy
             }
             pair == setOf('R', 'D') -> {
-                cx = centerX + (1f - t) * (cellW * 0.40f)
-                cy = centerY + (1f - t) * (cellH * 0.40f)
+                cx = (arcSrcX + 12 - 37.5f) * sx + cellW / 2f
+                cy = cellH / 2f + 12f * sy
             }
             else -> {
-                cx = centerX
-                cy = centerY
+                cx = cellW / 2f
+                cy = cellH / 2f
             }
         }
         dstRect.set(cx - dstW / 2f, cy - dstH / 2f, cx + dstW / 2f, cy + dstH / 2f)
         drawContext.canvas.nativeCanvas.drawBitmap(atlas, srcRect, dstRect, paint.asFrameworkPaint())
     }
 
-    /** 把 port(L/R/U/D) 和 "入/出" 方向转换成 SubLineAnimo 的 flowChar (E/W/S/N). */
+    /** 叠加画 1..maxFrame 的所有 SubArcAnimo 切片 */
+    fun drawArcAccumulated(portA: Char, portB: Char, maxFrame: Int) {
+        for (f in 1..maxFrame) {
+            drawArcSlice(portA, portB, f)
+        }
+    }
+
+    /** 端口字母 + 入/出 → SubLineAnimo 方向符 */
     fun portToFlow(port: Char, isEntry: Boolean): Char = when (port) {
         'L' -> if (isEntry) 'E' else 'W'
         'R' -> if (isEntry) 'W' else 'E'
@@ -678,45 +656,45 @@ private fun DrawScope.drawSegmentUsingAtlas(
 
     // ========= 主分支 =========
     if (isHalfPipe) {
-        // 死胡同/半截：只画 from 入口向中心推进 (1..15 frame)
-        drawLineBar(portToFlow(from, isEntry = true), frame)
+        // 死胡同：叠加 1..frame 的 SubLineAnimo 切片
+        drawLineAccumulated(portToFlow(from, isEntry = true), frame)
         return
     }
 
     if (isStraightOpposite) {
-        // 直管: 前 8 帧 from -> 中心；后 7 帧 中心 -> to (衔接)
-        val entryFrame = (frame * 2 - 1).coerceAtMost(15)
+        // 直管: 前8帧入口→中心(叠加), 后7帧中心→出口(叠加)
         if (frame <= halfFrame) {
-            drawLineBar(portToFlow(from, isEntry = true), entryFrame)
+            // 前半段：从入口端叠加切片
+            val subFrame = (frame * 2 - 1).coerceAtMost(15)
+            drawLineAccumulated(portToFlow(from, isEntry = true), subFrame)
         } else {
-            // 入口端整段铺满
-            drawLineBar(portToFlow(from, isEntry = true), 15)
-            // 出口端逐步铺开
+            // 入口端完全铺满
+            drawLineAccumulated(portToFlow(from, isEntry = true), 15)
+            // 出口端逐步叠加
             val exitFrame = ((frame - halfFrame) * 2 - 1).coerceAtMost(15)
-            drawLineBar(portToFlow(to, isEntry = false), exitFrame)
+            drawLineAccumulated(portToFlow(to, isEntry = false), exitFrame)
         }
         return
     }
 
-    // 弯管 (非对侧 / 存在拐点). from -> 中心 -> to 三部分
-    val entryFrame = if (frame <= halfFrame) {
-        (frame * 2 - 1).coerceAtMost(15)
-    } else {
-        15
-    }
-    // from 端口直线条 (端口 -> 中心)
-    drawLineBar(portToFlow(from, isEntry = true), entryFrame)
-    // 弯管弧 1..15 (跨半帧衔接继续推进). 弧也分两段
-    val arcFrame = when {
-        frame <= halfFrame -> (frame * 2 - 1).coerceAtMost(15)
-        else -> 15
-    }
-    drawArcBar(from, to, arcFrame)
+    // 弯管：入口直线 + 弧线 + 出口直线，各段叠加
+    val entryMaxFrame: Int
+    val arcMaxFrame: Int
 
-    if (frame > halfFrame) {
-        // to 端口出口直线条 (中心 -> 端口外)
+    if (frame <= halfFrame) {
+        // 前半帧：入口端叠加 + 弧线叠加
+        entryMaxFrame = (frame * 2 - 1).coerceAtMost(15)
+        arcMaxFrame = entryMaxFrame
+        drawLineAccumulated(portToFlow(from, isEntry = true), entryMaxFrame)
+        drawArcAccumulated(from, to, arcMaxFrame)
+    } else {
+        // 后半帧：入口端全满 + 弧线全满 + 出口端叠加
+        entryMaxFrame = 15
+        arcMaxFrame = 15
+        drawLineAccumulated(portToFlow(from, isEntry = true), entryMaxFrame)
+        drawArcAccumulated(from, to, arcMaxFrame)
         val exitFrame = ((frame - halfFrame) * 2 - 1).coerceAtMost(15)
-        drawLineBar(portToFlow(to, isEntry = false), exitFrame)
+        drawLineAccumulated(portToFlow(to, isEntry = false), exitFrame)
     }
 }
 
