@@ -38,7 +38,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
@@ -58,6 +57,7 @@ import com.gchunyan.waterpipe.game.PipeTypes
 import com.gchunyan.waterpipe.game.WaterPipeEngine
 import com.gchunyan.waterpipe.util.SoundManager
 import com.gchunyan.waterpipe.util.WaterAnimBitmap
+import com.gchunyan.waterpipe.util.WaterErrBitmap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -677,23 +677,30 @@ private fun DrawScope.drawArcAccum(
 }
 
 private fun DrawScope.drawSplash(dirs: List<Char>, step: Int) {
-    val w = size.width; val h = size.height
-    val paint = androidx.compose.ui.graphics.Paint().apply {
-        color = Color(0xFFFFEB3B); isAntiAlias = true
-    }
+    // 原版 ErrAnimo：51 步内重复 3 轮帧序列(0..16)，每步水滴喷出/降落
+    val f = (step % WaterErrBitmap.FRAMES).coerceIn(0, WaterErrBitmap.FRAMES - 1)
+    val left = WaterErrBitmap.frame(f, true) ?: return
+    val right = WaterErrBitmap.frame(f, false) ?: return
+    val paint = androidx.compose.ui.graphics.Paint().apply { isAntiAlias = true }
+    val s = size.width / 75f
+    val src = GRect(0, 0, WaterErrBitmap.FRAME_SIZE, WaterErrBitmap.FRAME_SIZE)
+    val dst = RectF()
+    val dpx = WaterErrBitmap.FRAME_SIZE * s
+
     for (d in dirs) {
-        val start = when (d) {
-            'L' -> Offset(0f, h / 2)
-            'R' -> Offset(w, h / 2)
-            'U' -> Offset(w / 2, 0f)
-            'D' -> Offset(w / 2, h)
-            else -> Offset(w / 2, h / 2)
+        // 漏口侧壁中点（75 坐标）
+        var descX = when (d) { 'U' -> 37.5f; 'R' -> 75f; 'D' -> 37.5f; else -> 0f }
+        var descY = when (d) { 'L' -> 37.5f; 'R' -> 37.5f; 'D' -> 75f; else -> 0f }
+        descX -= 45f; descY -= 65f
+        var x1 = descX; var x2 = descX + 10f; var y = descY
+        // 前6步水滴喷上并张开，之后下坠（同原版循环）
+        for (m in 0..f) {
+            if (m < 6) { x1 -= 4f; x2 += 4f; y -= 4f }
+            else { x1 -= 3f; x2 += 3f; y += 10f }
         }
-        val t = step / 50f
-        val radius = 4f + t * 40f
-        drawCircle(Color(0xFF29B6F6), radius = radius, center = start + Offset(
-            (if (d == 'L') -1 else if (d == 'R') 1 else 0) * t * 40f,
-            (if (d == 'U') -1 else if (d == 'D') 1 else 0) * t * 40f
-        ))
+        dst.set(x1 * s, y * s, x1 * s + dpx, y * s + dpx)
+        drawContext.canvas.nativeCanvas.drawBitmap(left, src, dst, paint.asFrameworkPaint())
+        dst.set(x2 * s, y * s, x2 * s + dpx, y * s + dpx)
+        drawContext.canvas.nativeCanvas.drawBitmap(right, src, dst, paint.asFrameworkPaint())
     }
 }

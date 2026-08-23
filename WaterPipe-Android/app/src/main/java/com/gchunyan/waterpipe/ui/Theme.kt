@@ -11,11 +11,13 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.gchunyan.waterpipe.util.WaterAnimBitmap
+import com.gchunyan.waterpipe.util.WaterErrBitmap
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WaterAnimBitmap.ensureLoaded(applicationContext)
+        WaterErrBitmap.ensureLoaded(applicationContext)
         setContent {
             WaterPipeTheme {
                 Surface(color = Color(0xFFD0E8FF)) {
@@ -27,6 +29,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         WaterAnimBitmap.recycle()
+        WaterErrBitmap.recycle()
         super.onDestroy()
     }
 }
