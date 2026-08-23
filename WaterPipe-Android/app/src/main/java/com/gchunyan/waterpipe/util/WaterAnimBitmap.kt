@@ -48,8 +48,11 @@ object WaterAnimBitmap {
      *
      * E: src=(5*(frame-1), 300), size=5×75  水平条
      * W: src=(75-5*frame, 300), size=5×75   水平条
-     * S: src=(0, 300+5*(frame-1)), size=75×5  垂直条 (用第一个 tile)
-     * N: src=(75, 375-5*frame), size=75×5     垂直条 (用第二个 tile)
+     * S: src=(75, 300+5*(frame-1)), size=75×5  垂直条 (竖直水线网点第 2 tile)
+     * N: src=(75, 375-5*frame), size=75×5     垂直条 (与 S 同网点，仅帧序反向)
+     *
+     * 注：第 4 行纹理只有两种网点——col0(x0..75)为水平水线(供 E/W)，col75(x75..150)为垂直水线(供 S/N)。
+     *     S 原误取 col0(水平水线)，会把水平线画在竖直管内导致垂直水流异常，此处改为与 N 同用 col75。
      */
     fun lineSrcRect(direction: Char, frame: Int): android.graphics.Rect {
         val fl = FRAME_LENGTH
@@ -64,8 +67,8 @@ object WaterAnimBitmap {
                 TILE - fl * frame + fl, row4 + TILE
             )
             'S' -> android.graphics.Rect(
-                0, row4 + fl * (frame - 1),
-                TILE, row4 + fl * (frame - 1) + fl
+                TILE, row4 + fl * (frame - 1),
+                TILE + TILE, row4 + fl * (frame - 1) + fl
             )
             'N' -> android.graphics.Rect(
                 TILE, row4 + TILE - fl * frame,
