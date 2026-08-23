@@ -602,7 +602,8 @@ private fun DrawScope.drawLineAccum(
 
 /** 叠加画 1..maxFrame 的 SubArcAnimo 弧线切片。
  *  原 M8 弧线 dst 位置 (75px 坐标):
- *    LD: (0, 17)  LU: (0, 0)  UR: (17, 0)  RD: (17, 17)
+ *    LD/DL: (0, 20)   LU/UL: (0, 0)   UR/RU: (20, 0)   RD/DR: (20, 20)
+ *  弧线大小: 55×55 (PIPE_MAIN_SIZE_ACR_IMG)
  */
 private fun DrawScope.drawArcAccum(
     atlas: android.graphics.Bitmap,
@@ -611,19 +612,19 @@ private fun DrawScope.drawArcAccum(
     srcRect: GRect, dstRect: RectF,
     from: Char, to: Char, maxFrame: Int
 ) {
-    // 弧线 dst 位置 (按原 M8 代码)
+    // 弧线 dst 位置 (按原 M8 代码, ARC_DESC=20, ARC_IMG=55)
     val pair = setOf(from, to)
     val dstX: Float
     val dstY: Float
     when {
-        pair == setOf('L', 'D') -> { dstX = 0f;      dstY = 17f * sy }
-        pair == setOf('L', 'U') -> { dstX = 0f;      dstY = 0f }
-        pair == setOf('R', 'U') -> { dstX = 17f * sx; dstY = 0f }
-        pair == setOf('R', 'D') -> { dstX = 17f * sx; dstY = 17f * sy }
+        pair == setOf('L', 'D') -> { dstX = 0f;              dstY = 20f * sy }
+        pair == setOf('L', 'U') -> { dstX = 0f;              dstY = 0f }
+        pair == setOf('R', 'U') -> { dstX = 20f * sx;        dstY = 0f }
+        pair == setOf('R', 'D') -> { dstX = 20f * sx;        dstY = 20f * sy }
         else -> { dstX = 0f; dstY = 0f }
     }
-    val dstW = 24f * sx
-    val dstH = 24f * sy
+    val dstW = 55f * sx
+    val dstH = 55f * sy
 
     for (f in 1..maxFrame) {
         srcRect.set(WaterAnimBitmap.arcSrcRect(from, to, f))

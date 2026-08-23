@@ -9,22 +9,28 @@ import com.gchunyan.waterpipe.R
  * AllWater.png 流水动画图集辅助。
  *
  * 原图 1125×375 = (15 × 75) × (5 × 75)。
- * Row 4 (y=300..375) 存"直线水纹理"（垂直水柱截面）。
- * Row 0..3 存 4 种方向弯管的弧形水纹理。
+ * Row 4 (y=300..375) 存直线水纹理。
+ * Row 0..3 存 4 种弯管弧形水纹理。
  *
- * SubLineAnimo 用一条 frame_length=5px 的窄带在 row 4 上横向/纵向滑动，
- * 对应 15 帧把水"扫"过整格。SubArcAnimo 用同样方式在 row 0..3 上扫过 75×75 的弧形区。
+ * 原 M8 常量:
+ *   PIPE_MAIN_SIZE_IMG = 75 (格子尺寸)
+ *   PIPE_MAIN_SIZE_ACR_DESC = 20 (弧形偏移)
+ *   PIPE_MAIN_SIZE_ACR_IMG = 55 (弧形大小)
+ *   frame_length = 5 (直线帧步进)
+ *   PIPE_ANIMO_FRAME = 15 (总帧数)
+ *   PIPE_ANIMO_HAFE_FRAME = 8 (半帧)
  */
 object WaterAnimBitmap {
 
-    private const val TILE = 75
-    private const val TOTAL_COLS = 15
-    private const val TOTAL_ROWS = 5
-    private const val FRAME_LENGTH = 5
+    const val TILE = 75
+    const val FRAME_LENGTH = 5
+    const val ARC_DESC = 20    // PIPE_MAIN_SIZE_ACR_DESC
+    const val ARC_IMG = 55    // PIPE_MAIN_SIZE_ACR_IMG
+    const val ANIM_FRAMES = 15
+    const val ANIM_HALF_FRAMES = 8
 
     private var atlas: Bitmap? = null
 
-    /** 初始化（可反复调用，幂等）。在后台线程解码。*/
     fun ensureLoaded(ctx: Context) {
         if (atlas != null) return
         runCatching {
@@ -34,36 +40,32 @@ object WaterAnimBitmap {
     }
 
     fun isLoaded(): Boolean = atlas != null
-
     fun get(): Bitmap? = atlas
-
-    fun recycle() {
-        atlas?.recycle()
-        atlas = null
-    }
+    fun recycle() { atlas?.recycle(); atlas = null }
 
     /**
-     * 计算 SubLineAnimo 在 AllWater 图上的源矩形。
-     * 原 M8 代码：
-     *   'E'/'W' 使用 row 4 第一个 tile (x=0..75) 的水平水纹
-     *   'S'/'N' 使用 row 4 第二个 tile (x=75..150) 的垂直水纹
-     * frame: 1..15
+     * SubLineAnimo 源矩形 — 完全对应 M8 SubLineAnimo 函数。
+     *
+     * E: src=(5*(frame-1), 300), size=5×75  水平条
+     * W: src=(75-5*frame, 300), size=5×75   水平条
+     * S: src=(0, 300+5*(frame-1)), size=75×5  垂直条 (用第一个 tile)
+     * N: src=(75, 375-5*frame), size=75×5     垂直条 (用第二个 tile)
      */
     fun lineSrcRect(direction: Char, frame: Int): android.graphics.Rect {
         val fl = FRAME_LENGTH
-        val row4 = TOTAL_ROWS * TILE - TILE  // 300
+        val row4 = 4 * TILE  // 300
         return when (direction) {
-            'W' -> android.graphics.Rect(
-                TILE - fl * frame, row4,
-                TILE - fl * frame + fl, row4 + TILE
-            )
             'E' -> android.graphics.Rect(
                 fl * (frame - 1), row4,
                 fl * (frame - 1) + fl, row4 + TILE
             )
+            'W' -> android.graphics.Rect(
+                TILE - fl * frame, row4,
+                TILE - fl * frame + fl, row4 + TILE
+            )
             'S' -> android.graphics.Rect(
-                TILE, row4 + fl * (frame - 1),
-                TILE + TILE, row4 + fl * (frame - 1) + fl
+                0, row4 + fl * (frame - 1),
+                TILE, row4 + fl * (frame - 1) + fl
             )
             'N' -> android.graphics.Rect(
                 TILE, row4 + TILE - fl * frame,
@@ -74,37 +76,43 @@ object WaterAnimBitmap {
     }
 
     /**
-     * 计算 SubArcAnimo 的源矩形。
-     * 原 M8 弧形行映射：
-     *   Row 0 (y=0):   LD / DL
-     *   Row 1 (y=75):  UR / RU
-     *   Row 2 (y=150): LU / UL
-     *   Row 3 (y=225): RD / DR
-     * 某些方向组合使用反向帧 (15-frame)。
-     * arc 区域: x = TILE*(frame-1)+17 .. +41, 宽24; y = row+17 .. row+41, 高24
+     * SubArcAnimo 源矩形 — 完全对应 M8 SubArcAnimo 函数。
+     *
+     * 弧形大小: 55×55, 右侧弧 x 有 +20 偏移
+     *
+     * LD: src=(75*(frame-1), 0),         size=55×55
+     * DL: src=(75*(15-frame), 0),        size=55×55
+     * LU: src=(75*(15-frame), 150),      size=55×55
+     * UL: src=(75*(frame-1), 150),      size=55×55
+     * UR: src=(75*(15-frame)+20, 75),   size=55×55
+     * RU: src=(75*(frame-1)+20, 75),    size=55×55
+     * RD: src=(75*(15-frame)+20, 225),  size=55×55
+     * DR: src=(75*(frame-1)+20, 225),   size=55×55
      */
     fun arcSrcRect(from: Char, to: Char, frame: Int): android.graphics.Rect {
-        val a1 = 17
-        val a2 = 41
-        val arcW = a2 - a1  // 24
+        val arcSize = ARC_IMG  // 55
+        val revFrame = ANIM_FRAMES + 1 - frame  // 16 - frame
 
-        // 确定行 + 是否反向帧
-        val y: Int
-        val actualFrame: Int
-        when {
-            (from == 'L' && to == 'D') -> { y = 0;        actualFrame = frame }
-            (from == 'D' && to == 'L') -> { y = 0;        actualFrame = 16 - frame }  // 反向
-            (from == 'U' && to == 'R') -> { y = TILE;     actualFrame = 16 - frame }  // 反向
-            (from == 'R' && to == 'U') -> { y = TILE;     actualFrame = frame }
-            (from == 'L' && to == 'U') -> { y = 2 * TILE; actualFrame = 16 - frame }  // 反向
-            (from == 'U' && to == 'L') -> { y = 2 * TILE; actualFrame = frame }
-            (from == 'R' && to == 'D') -> { y = 3 * TILE; actualFrame = 16 - frame }  // 反向
-            (from == 'D' && to == 'R') -> { y = 3 * TILE; actualFrame = frame }
-            else -> { y = 0; actualFrame = frame }
+        return when {
+            // Left-side arcs (no x offset)
+            (from == 'L' && to == 'D') ->
+                android.graphics.Rect(TILE * (frame - 1), 0, TILE * (frame - 1) + arcSize, arcSize)
+            (from == 'D' && to == 'L') ->
+                android.graphics.Rect(TILE * (revFrame - 1), 0, TILE * (revFrame - 1) + arcSize, arcSize)
+            (from == 'L' && to == 'U') ->
+                android.graphics.Rect(TILE * (revFrame - 1), 2 * TILE, TILE * (revFrame - 1) + arcSize, 2 * TILE + arcSize)
+            (from == 'U' && to == 'L') ->
+                android.graphics.Rect(TILE * (frame - 1), 2 * TILE, TILE * (frame - 1) + arcSize, 2 * TILE + arcSize)
+            // Right-side arcs (x + 20 offset)
+            (from == 'U' && to == 'R') ->
+                android.graphics.Rect(TILE * (revFrame - 1) + ARC_DESC, TILE, TILE * (revFrame - 1) + ARC_DESC + arcSize, TILE + arcSize)
+            (from == 'R' && to == 'U') ->
+                android.graphics.Rect(TILE * (frame - 1) + ARC_DESC, TILE, TILE * (frame - 1) + ARC_DESC + arcSize, TILE + arcSize)
+            (from == 'R' && to == 'D') ->
+                android.graphics.Rect(TILE * (revFrame - 1) + ARC_DESC, 3 * TILE, TILE * (revFrame - 1) + ARC_DESC + arcSize, 3 * TILE + arcSize)
+            (from == 'D' && to == 'R') ->
+                android.graphics.Rect(TILE * (frame - 1) + ARC_DESC, 3 * TILE, TILE * (frame - 1) + ARC_DESC + arcSize, 3 * TILE + arcSize)
+            else -> android.graphics.Rect(0, 0, arcSize, arcSize)
         }
-        return android.graphics.Rect(
-            TILE * (actualFrame - 1) + a1, y + a1,
-            TILE * (actualFrame - 1) + a2, y + a2
-        )
     }
 }

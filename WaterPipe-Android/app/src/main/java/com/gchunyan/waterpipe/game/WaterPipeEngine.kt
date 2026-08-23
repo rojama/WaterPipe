@@ -175,13 +175,10 @@ class WaterPipeEngine(
         val currentWave = waveQueue.toList()
         waveQueue.clear()
         val nextWave = mutableListOf<Int>()
-        val processedBoxes = mutableSetOf<Int>()  // 防止闭合回路死循环
         var added = 0
         val animatedPlans = mutableListOf<FlowStepPlan>()
 
         for (box in currentWave) {
-            if (box in processedBoxes) continue  // 已处理过，跳过（闭合回路）
-            processedBoxes.add(box)
             val st = boxes[box]
             val score = PipeTypes.scoreFor(st.tag, st.inLabAsString())
             added += score
@@ -201,14 +198,25 @@ class WaterPipeEngine(
                 val map = PipeTypes.flowOutMap(flowDir)
                 val nextBox = PipeTypes.neighbor(box, flowDir)
                 if (nextBox != null) {
-                    // 空格: 水不能进入 -> 溢出错误 (注意水源格 SOURCE 不算空)
-                    if (boxes[nextBox].tag.isEmpty() || boxes[nextBox].tag == PipeTypes.EMPTY) {
+                    val nextSt = boxes[nextBox]
+                    // 空格: 水不能进入 -> 溢出错误
+                    if (nextSt.tag.isEmpty() || nextSt.tag == PipeTypes.EMPTY) {
                         isErr = true
                         errors.add(ErrBox(box, map.errLetter))
                         continue
                     }
-                    boxes[nextBox].addIn(map.inLetter)
-                    if (nextBox !in processedBoxes && !nextWave.contains(nextBox)) nextWave.add(nextBox)
+                    // M8 关键: 检查 full_lab — 如果下一格的对应端口已填充，不再传播 (防止闭合回路死循环)
+                    if (nextSt.fullLab.contains(map.inLetter)) {
+                        continue  // 已填充，跳过 (M8 GetBoxInDirection 返回 -3)
+                    }
+                    // 检查下一格 tag 是否包含该入口端口 (M8 GetBoxInDirection 返回 -2 → 报错)
+                    if (!nextSt.tag.contains(map.inLetter)) {
+                        isErr = true
+                        errors.add(ErrBox(box, map.errLetter))
+                        continue
+                    }
+                    nextSt.addIn(map.inLetter)
+                    if (!nextWave.contains(nextBox)) nextWave.add(nextBox)
                 } else {
                     // 边界溢出
                     isErr = true
