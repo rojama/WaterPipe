@@ -65,10 +65,13 @@ class GameViewModel(private val repo: SettingsRepository) : ViewModel() {
     val ranking: StateFlow<List<RankingEntry>> = _ranking.asStateFlow()
 
     init {
+        // 同步初始化游戏引擎：保证首次组合时预览管道队列已就绪，
+        // 避免因排行榜异步加载而延迟 newGame，造成打开即“自动滚动/填充”的视觉。
+        engine.newGame()
+        gameVersion++
+
         viewModelScope.launch {
             _ranking.value = repo.loadRanking()
-            engine.newGame()
-            gameVersion++
         }
     }
 
