@@ -496,7 +496,7 @@ private fun CellView(
         val segs = if (frame >= 0 && anim.segments.containsKey(box)) anim.segments[box] else null
         if (segs != null) {
             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                drawWaterOverlay(segs, this)
+                drawWaterOverlay(segs, tag, this)
             }
         }
 
@@ -511,6 +511,7 @@ private fun CellView(
 
 private fun DrawScope.drawWaterOverlay(
     segs: List<AnimationState.SegmentProgress>,
+    tag: String,
     scope: DrawScope
 ) {
     val atlas = WaterAnimBitmap.get() ?: return
@@ -526,10 +527,7 @@ private fun DrawScope.drawWaterOverlay(
     val frame = segs.firstOrNull()?.frame?.coerceIn(0, 15) ?: return
     if (frame <= 0) return
 
-    // 多段(两个入口): 半帧(8帧)完成, 每段用 frame*2 压缩
-    // 单段(一个入口): 全帧(15帧)
-    val isMultiSeg = segs.size > 1
-    val maxFrame = if (isMultiSeg) (frame * 2).coerceAtMost(15) else frame
+    val isStraightType = PipeTypes.isStraightAnimTag(tag)
 
     val srcRect = GRect()
     val dstRect = RectF()
@@ -539,21 +537,31 @@ private fun DrawScope.drawWaterOverlay(
         val to = seg.to
 
         if (from == to) {
-            // 死胡同：入口向中心画直线（叠加 1..maxFrame）
+            // 死胡同：入口向中心画直线（叠加 1..frame）
             drawLineAccum(atlas, paint, cellW, cellH, sx, sy, srcRect, dstRect,
-                portToFlow(from, true), maxFrame)
-        } else {
-            val isStraight = (from == 'L' && to == 'R') || (from == 'R' && to == 'L') ||
-                             (from == 'U' && to == 'D') || (from == 'D' && to == 'U')
-            if (isStraight) {
-                // 直管：从 from 到 to 画直线（叠加 1..maxFrame）
+                portToFlow(from, true), frame)
+        } else if (isStraightType) {
+            // 直线型管段（直线 / T 型 / 十字 / 桥梁）：
+            //  阶段一 先入中心（帧 1..8，边缘→中心）
+            //  阶段二 到中心后散向各出口（帧 9..15，中心→出口边缘）
+            val entryCount = frame.coerceAtMost(PipeTypes.ANIM_HALF_FRAME)
+            if (entryCount > 0) {
                 drawLineAccum(atlas, paint, cellW, cellH, sx, sy, srcRect, dstRect,
-                    portToFlow(from, true), maxFrame)
-            } else {
-                // 弯管：画弧线（叠加 1..maxFrame）
-                drawArcAccum(atlas, paint, cellW, cellH, sx, sy, srcRect, dstRect,
-                    from, to, maxFrame)
+                    portToFlow(from, true), entryCount)
             }
+            if (frame > PipeTypes.ANIM_HALF_FRAME) {
+                // 按剩余帧数（15-8=7 帧）铺满 8 片到达边缘
+                val exitCount = (frame - PipeTypes.ANIM_HALF_FRAME) * 8 / (PipeTypes.ANIM_FRAMES - PipeTypes.ANIM_HALF_FRAME)
+                if (exitCount > 0) {
+                    drawLineAccumCenterOut(atlas, paint, cellW, cellH, sx, sy, srcRect, dstRect,
+                        portToFlow(to, false), exitCount)
+                }
+            }
+        } else {
+            // 弧线型（L 型 / 双弧立交）：弧线累积
+            val maxFrame = if (segs.size > 1) (frame * 2).coerceAtMost(15) else frame
+            drawArcAccum(atlas, paint, cellW, cellH, sx, sy, srcRect, dstRect,
+                from, to, maxFrame)
         }
     }
 }
@@ -592,6 +600,41 @@ private fun DrawScope.drawLineAccum(
             }
             'N' -> {
                 val y = cellH - f * 5f * sy
+                dstRect.set(0f, y, cellW, y + 5f * sy)
+            }
+            else -> continue
+        }
+        drawContext.canvas.nativeCanvas.drawBitmap(atlas, srcRect, dstRect, paint.asFrameworkPaint())
+    }
+}
+
+/** 从中心向出口方向累积画 count 片直线水条（片 1..count 从中心向外延伸）。*/
+private fun DrawScope.drawLineAccumCenterOut(
+    atlas: android.graphics.Bitmap,
+    paint: androidx.compose.ui.graphics.Paint,
+    cellW: Float, cellH: Float, sx: Float, sy: Float,
+    srcRect: GRect, dstRect: RectF,
+    flowChar: Char, count: Int
+) {
+    val cx = cellW / 2f
+    val cy = cellH / 2f
+    for (f in 1..count) {
+        srcRect.set(WaterAnimBitmap.lineSrcRect(flowChar, f))
+        when (flowChar) {
+            'E' -> {
+                val x = cx + (f - 1) * 5f * sx
+                dstRect.set(x, 0f, x + 5f * sx, cellH)
+            }
+            'W' -> {
+                val x = cx - f * 5f * sx
+                dstRect.set(x, 0f, x + 5f * sx, cellH)
+            }
+            'S' -> {
+                val y = cy + (f - 1) * 5f * sy
+                dstRect.set(0f, y, cellW, y + 5f * sy)
+            }
+            'N' -> {
+                val y = cy - f * 5f * sy
                 dstRect.set(0f, y, cellW, y + 5f * sy)
             }
             else -> continue

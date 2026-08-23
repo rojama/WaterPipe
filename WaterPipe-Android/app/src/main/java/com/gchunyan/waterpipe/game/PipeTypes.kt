@@ -77,6 +77,14 @@ object PipeTypes {
         else -> null
     }
 
+    /** 是否直线型管段（直线 / T 型 / 十字 / 桥梁）：这类水动画用直线片拼接，
+     *  并采用"先入中心、后散向出口"的两段式渲染。
+     *  其余（L 型 + 双弧立交）用弧线渲染。 */
+    fun isStraightAnimTag(tag: String): Boolean = when (tag) {
+        LR, UD, LUR, URD, LRD, LUD, LURD, LURDX -> true
+        else -> false
+    }
+
     /** 立交桥合并：旧 tag + 新 tag 方向互补则升级。
      * 规则：
      *  1. 两个半弧（如 LU+RD 或 LD+RU）→ 合并为双弧立交 (LURD_BACK / LURD_SLASH)
