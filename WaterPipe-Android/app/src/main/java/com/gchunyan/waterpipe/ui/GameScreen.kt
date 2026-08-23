@@ -158,11 +158,12 @@ private fun GameLeftPanel(
     val engine = vm.engine
 
     Box(mod) {
-        // yulang 背景涵盖整个左侧区域（滚动区+按钮区）
+        // yulang 背景：按原始比例 90:615 不拉伸，高度填满，宽度按比例缩放
         yulang?.let {
             Image(bitmap = it, contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds)
+                modifier = Modifier.fillMaxHeight().fillMaxWidth(),
+                contentScale = ContentScale.FillHeight,
+                alignment = Alignment.TopCenter)
         }
 
         // 内容层：与 yulang 背景顶端对齐
@@ -519,169 +520,115 @@ private fun DrawScope.drawWaterOverlay(
 
     val cellW = scope.size.width
     val cellH = scope.size.height
-
-    for (seg in segs) {
-        val frame = seg.frame.coerceIn(0, seg.totalFrames)
-        if (frame <= 0) continue
-        drawSegmentUsingAtlas(atlas, paint, cellW, cellH, seg.from, seg.to, frame, seg.totalFrames)
-    }
-}
-
-/**
- * 按原 M8 AllWater.png 素材渲染流水 from->to。
- * 关键：每一帧都叠加渲染 1..frame 的所有切片，形成从入口到出口逐步推进的完整水流。
- *  不是只画当前位置的窄条，而是把之前所有帧的切片都画上去（叠加累积）。
- *
- *  - 直管(对侧 LR/UD): SubLineAnimo 切片叠加，前半帧入口→中心，后半帧中心→出口
- *  - 半管(from==to): SubLineAnimo 切片叠加 1..frame
- *  - 弯管(非对侧): SubLineAnimo(端口→中心) + SubArcAnimo(弧线) 切片叠加
- */
-private fun DrawScope.drawSegmentUsingAtlas(
-    atlas: android.graphics.Bitmap,
-    paint: androidx.compose.ui.graphics.Paint,
-    cellW: Float,
-    cellH: Float,
-    from: Char,
-    to: Char,
-    frame: Int,
-    @Suppress("UNUSED_PARAMETER") totalFrames: Int
-) {
-    val halfFrame = PipeTypes.ANIM_HALF_FRAME
-    val srcRect = GRect()
-    val dstRect = RectF()
-
-    val isStraightOpposite = (from == 'L' && to == 'R') || (from == 'R' && to == 'L') ||
-                             (from == 'U' && to == 'D') || (from == 'D' && to == 'U')
-    val isHalfPipe = (from == to)
-
     val sx = cellW / 75f
     val sy = cellH / 75f
 
-    /** 画一条 SubLineAnimo 切片 (单帧 f)，从端口到对应位置。
-     *  flowChar: 'E'=从左向右 'W'=从右向左 'S'=从上向下 'N'=从下向上 */
-    fun drawLineSlice(flowChar: Char, f: Int) {
-        if (f <= 0 || f > 15) return
+    val frame = segs.firstOrNull()?.frame?.coerceIn(0, 15) ?: return
+    if (frame <= 0) return
+
+    // 多段(两个入口): 半帧(8帧)完成, 每段用 frame*2 压缩
+    // 单段(一个入口): 全帧(15帧)
+    val isMultiSeg = segs.size > 1
+    val maxFrame = if (isMultiSeg) (frame * 2).coerceAtMost(15) else frame
+
+    val srcRect = GRect()
+    val dstRect = RectF()
+
+    for (seg in segs) {
+        val from = seg.from
+        val to = seg.to
+
+        if (from == to) {
+            // 死胡同：入口向中心画直线（叠加 1..maxFrame）
+            drawLineAccum(atlas, paint, cellW, cellH, sx, sy, srcRect, dstRect,
+                portToFlow(from, true), maxFrame)
+        } else {
+            val isStraight = (from == 'L' && to == 'R') || (from == 'R' && to == 'L') ||
+                             (from == 'U' && to == 'D') || (from == 'D' && to == 'U')
+            if (isStraight) {
+                // 直管：从 from 到 to 画直线（叠加 1..maxFrame）
+                drawLineAccum(atlas, paint, cellW, cellH, sx, sy, srcRect, dstRect,
+                    portToFlow(from, true), maxFrame)
+            } else {
+                // 弯管：画弧线（叠加 1..maxFrame）
+                drawArcAccum(atlas, paint, cellW, cellH, sx, sy, srcRect, dstRect,
+                    from, to, maxFrame)
+            }
+        }
+    }
+}
+
+/** 端口字母 + 入/出 → SubLineAnimo 方向符 (E/W/S/N) */
+private fun portToFlow(port: Char, isEntry: Boolean): Char = when (port) {
+    'L' -> if (isEntry) 'E' else 'W'
+    'R' -> if (isEntry) 'W' else 'E'
+    'U' -> if (isEntry) 'S' else 'N'
+    'D' -> if (isEntry) 'N' else 'S'
+    else -> ' '
+}
+
+/** 叠加画 1..maxFrame 的 SubLineAnimo 切片 */
+private fun DrawScope.drawLineAccum(
+    atlas: android.graphics.Bitmap,
+    paint: androidx.compose.ui.graphics.Paint,
+    cellW: Float, cellH: Float, sx: Float, sy: Float,
+    srcRect: GRect, dstRect: RectF,
+    flowChar: Char, maxFrame: Int
+) {
+    for (f in 1..maxFrame) {
         srcRect.set(WaterAnimBitmap.lineSrcRect(flowChar, f))
-        // 原图每帧 5px 宽，对应 cell 内 5*sx dp
         when (flowChar) {
-            'E' -> { // 水从左向右: 第 f 帧的切片在 x = (f-1)*5*sx 位置
+            'E' -> {
                 val x = (f - 1) * 5f * sx
-                val w = 5f * sx
-                val h = cellH
-                dstRect.set(x, 0f, x + w, h)
+                dstRect.set(x, 0f, x + 5f * sx, cellH)
             }
-            'W' -> { // 水从右向左: 切片从右边开始
+            'W' -> {
                 val x = cellW - f * 5f * sx
-                val w = 5f * sx
-                val h = cellH
-                dstRect.set(x, 0f, x + w, h)
+                dstRect.set(x, 0f, x + 5f * sx, cellH)
             }
-            'S' -> { // 水从上向下
+            'S' -> {
                 val y = (f - 1) * 5f * sy
-                val w = cellW
-                val h = 5f * sy
-                dstRect.set(0f, y, w, y + h)
+                dstRect.set(0f, y, cellW, y + 5f * sy)
             }
-            'N' -> { // 水从下向上
+            'N' -> {
                 val y = cellH - f * 5f * sy
-                val w = cellW
-                val h = 5f * sy
-                dstRect.set(0f, y, w, y + h)
+                dstRect.set(0f, y, cellW, y + 5f * sy)
             }
+            else -> continue
         }
         drawContext.canvas.nativeCanvas.drawBitmap(atlas, srcRect, dstRect, paint.asFrameworkPaint())
     }
+}
 
-    /** 叠加画 1..maxFrame 的所有 SubLineAnimo 切片 */
-    fun drawLineAccumulated(flowChar: Char, maxFrame: Int) {
-        for (f in 1..maxFrame) {
-            drawLineSlice(flowChar, f)
-        }
+/** 叠加画 1..maxFrame 的 SubArcAnimo 弧线切片。
+ *  原 M8 弧线 dst 位置 (75px 坐标):
+ *    LD: (0, 17)  LU: (0, 0)  UR: (17, 0)  RD: (17, 17)
+ */
+private fun DrawScope.drawArcAccum(
+    atlas: android.graphics.Bitmap,
+    paint: androidx.compose.ui.graphics.Paint,
+    cellW: Float, cellH: Float, sx: Float, sy: Float,
+    srcRect: GRect, dstRect: RectF,
+    from: Char, to: Char, maxFrame: Int
+) {
+    // 弧线 dst 位置 (按原 M8 代码)
+    val pair = setOf(from, to)
+    val dstX: Float
+    val dstY: Float
+    when {
+        pair == setOf('L', 'D') -> { dstX = 0f;      dstY = 17f * sy }
+        pair == setOf('L', 'U') -> { dstX = 0f;      dstY = 0f }
+        pair == setOf('R', 'U') -> { dstX = 17f * sx; dstY = 0f }
+        pair == setOf('R', 'D') -> { dstX = 17f * sx; dstY = 17f * sy }
+        else -> { dstX = 0f; dstY = 0f }
     }
+    val dstW = 24f * sx
+    val dstH = 24f * sy
 
-    /** 画一条 SubArcAnimo 切片 (单帧 f) */
-    fun drawArcSlice(portA: Char, portB: Char, f: Int) {
-        if (f <= 0 || f > 15) return
-        srcRect.set(WaterAnimBitmap.arcSrcRect(portA, portB, f))
-        // arc 切片在原图中 x = TILE*(f-1)+17 .. TILE*(f-1)+41, y = row_y+17..row_y+41
-        // 24x24 像素的弧形切片，映射到 cell 对应象限
-        val arcSrcX = 75 * (f - 1) + 17
-        val dstW = 24f * sx
-        val dstH = 24f * sy
-
-        // 按弯管方向决定弧线在 cell 中的位置
-        val pair = setOf(portA, portB)
-        val cx: Float
-        val cy: Float
-        when {
-            pair == setOf('L', 'D') -> {
-                // 左下弯管：弧从左侧中部弯到下方中部
-                cx = (arcSrcX + 12 - 37.5f) * sx + cellW / 2f
-                cy = cellH / 2f + 12f * sy  // 偏下
-            }
-            pair == setOf('L', 'U') -> {
-                cx = (arcSrcX + 12 - 37.5f) * sx + cellW / 2f
-                cy = cellH / 2f - 12f * sy  // 偏上
-            }
-            pair == setOf('R', 'U') -> {
-                cx = (arcSrcX + 12 - 37.5f) * sx + cellW / 2f
-                cy = cellH / 2f - 12f * sy
-            }
-            pair == setOf('R', 'D') -> {
-                cx = (arcSrcX + 12 - 37.5f) * sx + cellW / 2f
-                cy = cellH / 2f + 12f * sy
-            }
-            else -> {
-                cx = cellW / 2f
-                cy = cellH / 2f
-            }
-        }
-        dstRect.set(cx - dstW / 2f, cy - dstH / 2f, cx + dstW / 2f, cy + dstH / 2f)
+    for (f in 1..maxFrame) {
+        srcRect.set(WaterAnimBitmap.arcSrcRect(from, to, f))
+        dstRect.set(dstX, dstY, dstX + dstW, dstY + dstH)
         drawContext.canvas.nativeCanvas.drawBitmap(atlas, srcRect, dstRect, paint.asFrameworkPaint())
-    }
-
-    /** 叠加画 1..maxFrame 的所有 SubArcAnimo 切片 */
-    fun drawArcAccumulated(portA: Char, portB: Char, maxFrame: Int) {
-        for (f in 1..maxFrame) {
-            drawArcSlice(portA, portB, f)
-        }
-    }
-
-    /** 端口字母 + 入/出 → SubLineAnimo 方向符 */
-    fun portToFlow(port: Char, isEntry: Boolean): Char = when (port) {
-        'L' -> if (isEntry) 'E' else 'W'
-        'R' -> if (isEntry) 'W' else 'E'
-        'U' -> if (isEntry) 'S' else 'N'
-        'D' -> if (isEntry) 'N' else 'S'
-        else -> ' '
-    }
-
-    // ========= 主分支 =========
-    if (isHalfPipe) {
-        // 死胡同：叠加 1..frame 的 SubLineAnimo 切片
-        drawLineAccumulated(portToFlow(from, isEntry = true), frame)
-        return
-    }
-
-    if (isStraightOpposite) {
-        // 直管: 单方向 15 帧叠加，从入口端到出口端完整填充
-        // LR: 'E' 从左到右; RL: 'W' 从右到左; UD: 'S' 从上到下; DU: 'N' 从下到上
-        drawLineAccumulated(portToFlow(from, isEntry = true), frame)
-        return
-    }
-
-    // 弯管：入口直线(半格) + 弧线(中心弯) + 出口直线(半格)，各段叠加
-    // 前8帧: 入口端从端口到中心(7帧) + 弧线从端口到中心
-    // 后7帧: 入口端满 + 弧线满 + 出口端从中心到端口
-    if (frame <= halfFrame) {
-        val subFrame = (frame * 2 - 1).coerceAtMost(15)
-        drawLineAccumulated(portToFlow(from, isEntry = true), subFrame)
-        drawArcAccumulated(from, to, subFrame)
-    } else {
-        drawLineAccumulated(portToFlow(from, isEntry = true), 15)
-        drawArcAccumulated(from, to, 15)
-        val exitFrame = ((frame - halfFrame) * 2 - 1).coerceAtMost(15)
-        drawLineAccumulated(portToFlow(to, isEntry = false), exitFrame)
     }
 }
 

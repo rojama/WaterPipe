@@ -175,10 +175,13 @@ class WaterPipeEngine(
         val currentWave = waveQueue.toList()
         waveQueue.clear()
         val nextWave = mutableListOf<Int>()
+        val processedBoxes = mutableSetOf<Int>()  // 防止闭合回路死循环
         var added = 0
         val animatedPlans = mutableListOf<FlowStepPlan>()
 
         for (box in currentWave) {
+            if (box in processedBoxes) continue  // 已处理过，跳过（闭合回路）
+            processedBoxes.add(box)
             val st = boxes[box]
             val score = PipeTypes.scoreFor(st.tag, st.inLabAsString())
             added += score
@@ -205,7 +208,7 @@ class WaterPipeEngine(
                         continue
                     }
                     boxes[nextBox].addIn(map.inLetter)
-                    if (!nextWave.contains(nextBox)) nextWave.add(nextBox)
+                    if (nextBox !in processedBoxes && !nextWave.contains(nextBox)) nextWave.add(nextBox)
                 } else {
                     // 边界溢出
                     isErr = true

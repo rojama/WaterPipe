@@ -44,8 +44,10 @@ object WaterAnimBitmap {
 
     /**
      * 计算 SubLineAnimo 在 AllWater 图上的源矩形。
-     * 方向: 'E' 水从左入向右流; 'W' 水从右入向左流; 'S' 水从上入向下流; 'N' 水从下入向上流。
-     * frame: 1..15（与原 C++ 相同）。
+     * 原 M8 代码：
+     *   'E'/'W' 使用 row 4 第一个 tile (x=0..75) 的水平水纹
+     *   'S'/'N' 使用 row 4 第二个 tile (x=75..150) 的垂直水纹
+     * frame: 1..15
      */
     fun lineSrcRect(direction: Char, frame: Int): android.graphics.Rect {
         val fl = FRAME_LENGTH
@@ -60,12 +62,12 @@ object WaterAnimBitmap {
                 fl * (frame - 1) + fl, row4 + TILE
             )
             'S' -> android.graphics.Rect(
-                0, row4 + fl * (frame - 1),
-                TILE, row4 + fl * (frame - 1) + fl
+                TILE, row4 + fl * (frame - 1),
+                TILE + TILE, row4 + fl * (frame - 1) + fl
             )
             'N' -> android.graphics.Rect(
-                0, row4 + TILE - fl * frame,
-                TILE, row4 + TILE - fl * frame + fl
+                TILE, row4 + TILE - fl * frame,
+                TILE + TILE, row4 + TILE - fl * frame + fl
             )
             else -> android.graphics.Rect(0, row4, fl, row4 + TILE)
         }
@@ -73,25 +75,36 @@ object WaterAnimBitmap {
 
     /**
      * 计算 SubArcAnimo 的源矩形。
-     * from/to 是入口/出口端口字母 'L','R','U','D'。
-     * frame: 1..15。
+     * 原 M8 弧形行映射：
+     *   Row 0 (y=0):   LD / DL
+     *   Row 1 (y=75):  UR / RU
+     *   Row 2 (y=150): LU / UL
+     *   Row 3 (y=225): RD / DR
+     * 某些方向组合使用反向帧 (15-frame)。
+     * arc 区域: x = TILE*(frame-1)+17 .. +41, 宽24; y = row+17 .. row+41, 高24
      */
     fun arcSrcRect(from: Char, to: Char, frame: Int): android.graphics.Rect {
         val a1 = 17
         val a2 = 41
-        // 枚举所有 L<->R/U<->D 组合
-        val y = when {
-            (from == 'L' && to == 'D') || (from == 'D' && to == 'L') -> 0           // row 0: y=0
-            (from == 'L' && to == 'U') || (from == 'U' && to == 'L') -> 2 * TILE   // row 2: y=150
-            (from == 'U' && to == 'R') || (from == 'R' && to == 'U') -> 2 * TILE   // row 2: y=150 (same texture)
-            (from == 'R' && to == 'D') || (from == 'D' && to == 'R') -> 3 * TILE   // row 3: y=225
-            else -> 0
+        val arcW = a2 - a1  // 24
+
+        // 确定行 + 是否反向帧
+        val y: Int
+        val actualFrame: Int
+        when {
+            (from == 'L' && to == 'D') -> { y = 0;        actualFrame = frame }
+            (from == 'D' && to == 'L') -> { y = 0;        actualFrame = 16 - frame }  // 反向
+            (from == 'U' && to == 'R') -> { y = TILE;     actualFrame = 16 - frame }  // 反向
+            (from == 'R' && to == 'U') -> { y = TILE;     actualFrame = frame }
+            (from == 'L' && to == 'U') -> { y = 2 * TILE; actualFrame = 16 - frame }  // 反向
+            (from == 'U' && to == 'L') -> { y = 2 * TILE; actualFrame = frame }
+            (from == 'R' && to == 'D') -> { y = 3 * TILE; actualFrame = 16 - frame }  // 反向
+            (from == 'D' && to == 'R') -> { y = 3 * TILE; actualFrame = frame }
+            else -> { y = 0; actualFrame = frame }
         }
-        val a1_y = y + a1
-        val a2_y = y + a2
         return android.graphics.Rect(
-            TILE * (frame - 1) + a1, a1_y,
-            TILE * (frame - 1) + a2, a2_y
+            TILE * (actualFrame - 1) + a1, y + a1,
+            TILE * (actualFrame - 1) + a2, y + a2
         )
     }
 }
