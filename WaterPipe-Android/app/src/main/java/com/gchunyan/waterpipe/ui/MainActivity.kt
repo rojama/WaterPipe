@@ -55,6 +55,10 @@ class GameViewModel(private val repo: SettingsRepository) : ViewModel() {
 
     val engine = WaterPipeEngine()
 
+    /** 水流动画状态存放在 ViewModel 中，跨界面跳转（如记录分数后返回）仍保留水流，
+     *  仅新游戏时才清空。 */
+    val animState = AnimationState()
+
     var gameVersion by mutableIntStateOf(0)
         private set
 
@@ -140,6 +144,8 @@ fun WaterPipeApp() {
                 onConfirm = { name ->
                     nav.previousBackStackEntry?.savedStateHandle?.set("name_result", true)
                     nav.previousBackStackEntry?.savedStateHandle?.set("name_value", name)
+                    // 记录成绩到排行榜（仅记录姓名与分数，不截图）。
+                    vm.saveScreenshotAndInsert("", name, score, rank)
                     nav.popBackStack()
                 }
             )

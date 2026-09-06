@@ -180,6 +180,11 @@ class WaterPipeEngine(
 
         for (box in currentWave) {
             val st = boxes[box]
+            // 密封/已注满：若该格所有入口此前均已注入并处理过，说明它已被前一波密封，
+            // 不应再次推导流水（避免闭合回路/重复波次仍误判继续流水）。
+            if (st.inLab.isNotEmpty() && st.fullLab.containsAll(st.inLab)) {
+                continue
+            }
             val score = PipeTypes.scoreFor(st.tag, st.inLabAsString())
             added += score
             this.score += score
@@ -350,8 +355,8 @@ class WaterPipeEngine(
                                            'U' to mapOf('L' to 'W', 'R' to 'E'),
                                            'R' to mapOf('L' to 'W', 'U' to 'N'))
                     PipeTypes.URD -> mapOf('U' to mapOf('R' to 'E', 'D' to 'S'),
-                                           'R' to mapOf('U' to 'E', 'D' to 'S'),
-                                           'D' to mapOf('U' to 'S', 'R' to 'E'))
+                                           'R' to mapOf('U' to 'N', 'D' to 'S'),
+                                           'D' to mapOf('U' to 'N', 'R' to 'E'))
                     PipeTypes.LRD -> mapOf('L' to mapOf('R' to 'E', 'D' to 'S'),
                                            'R' to mapOf('L' to 'W', 'D' to 'S'),
                                            'D' to mapOf('L' to 'W', 'R' to 'E'))

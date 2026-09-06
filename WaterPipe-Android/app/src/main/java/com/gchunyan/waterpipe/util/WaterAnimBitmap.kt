@@ -81,40 +81,44 @@ object WaterAnimBitmap {
     /**
      * SubArcAnimo 源矩形 — 完全对应 M8 SubArcAnimo 函数。
      *
-     * 弧形大小: 55×55, 右侧弧 x 有 +20 偏移
+     * 弧形大小: 55×55, 右侧弧 x 有 +20 偏移, 底部弧 y 也有 +20 偏移
+     * (弧形在图集行中的实际位置：顶部弧贴行上沿 offset=0，底部弧贴行下沿 offset=20)。
      *
-     * LD: src=(75*(frame-1), 0),         size=55×55
-     * DL: src=(75*(15-frame), 0),        size=55×55
-     * LU: src=(75*(15-frame), 150),      size=55×55
-     * UL: src=(75*(frame-1), 150),      size=55×55
-     * UR: src=(75*(15-frame)+20, 75),   size=55×55
-     * RU: src=(75*(frame-1)+20, 75),    size=55×55
-     * RD: src=(75*(15-frame)+20, 225),  size=55×55
-     * DR: src=(75*(frame-1)+20, 225),   size=55×55
+     * LD: src=(75*(frame-1), 20),          size=55×55
+     * DL: src=(75*(15-frame), 20),         size=55×55
+     * LU: src=(75*(15-frame), 150),        size=55×55
+     * UL: src=(75*(frame-1), 150),         size=55×55
+     * UR: src=(75*(15-frame)+20, 75),      size=55×55
+     * RU: src=(75*(frame-1)+20, 75),       size=55×55
+     * RD: src=(75*(15-frame)+20, 245),     size=55×55
+     * DR: src=(75*(frame-1)+20, 245),      size=55×55
      */
     fun arcSrcRect(from: Char, to: Char, frame: Int): android.graphics.Rect {
         val arcSize = ARC_IMG  // 55
         val revFrame = ANIM_FRAMES + 1 - frame  // 16 - frame
 
         return when {
-            // Left-side arcs (no x offset)
+            // 底部弯弧（L→D / D→L）：弧形实际位于图集行的下沿，需向下偏移 ARC_DESC(20)，
+            // 否则只截取到该行上方空白，导致水流图坐标错位。
             (from == 'L' && to == 'D') ->
-                android.graphics.Rect(TILE * (frame - 1), 0, TILE * (frame - 1) + arcSize, arcSize)
+                android.graphics.Rect(TILE * (frame - 1), ARC_DESC, TILE * (frame - 1) + arcSize, ARC_DESC + arcSize)
             (from == 'D' && to == 'L') ->
-                android.graphics.Rect(TILE * (revFrame - 1), 0, TILE * (revFrame - 1) + arcSize, arcSize)
+                android.graphics.Rect(TILE * (revFrame - 1), ARC_DESC, TILE * (revFrame - 1) + arcSize, ARC_DESC + arcSize)
+            // 顶部左弧（L→U / U→L）：弧形位于图集行上沿，偏移 0。
             (from == 'L' && to == 'U') ->
                 android.graphics.Rect(TILE * (revFrame - 1), 2 * TILE, TILE * (revFrame - 1) + arcSize, 2 * TILE + arcSize)
             (from == 'U' && to == 'L') ->
                 android.graphics.Rect(TILE * (frame - 1), 2 * TILE, TILE * (frame - 1) + arcSize, 2 * TILE + arcSize)
-            // Right-side arcs (x + 20 offset)
+            // 顶部右弧（U→R / R→U）：弧形位于图集行上沿，x 偏移 +20。
             (from == 'U' && to == 'R') ->
                 android.graphics.Rect(TILE * (revFrame - 1) + ARC_DESC, TILE, TILE * (revFrame - 1) + ARC_DESC + arcSize, TILE + arcSize)
             (from == 'R' && to == 'U') ->
                 android.graphics.Rect(TILE * (frame - 1) + ARC_DESC, TILE, TILE * (frame - 1) + ARC_DESC + arcSize, TILE + arcSize)
+            // 底部右弧（R→D / D→R）：弧形位于图集行下沿，x 偏移 +20，y 也需偏移 +20。
             (from == 'R' && to == 'D') ->
-                android.graphics.Rect(TILE * (revFrame - 1) + ARC_DESC, 3 * TILE, TILE * (revFrame - 1) + ARC_DESC + arcSize, 3 * TILE + arcSize)
+                android.graphics.Rect(TILE * (revFrame - 1) + ARC_DESC, 3 * TILE + ARC_DESC, TILE * (revFrame - 1) + ARC_DESC + arcSize, 3 * TILE + ARC_DESC + arcSize)
             (from == 'D' && to == 'R') ->
-                android.graphics.Rect(TILE * (frame - 1) + ARC_DESC, 3 * TILE, TILE * (frame - 1) + ARC_DESC + arcSize, 3 * TILE + arcSize)
+                android.graphics.Rect(TILE * (frame - 1) + ARC_DESC, 3 * TILE + ARC_DESC, TILE * (frame - 1) + ARC_DESC + arcSize, 3 * TILE + ARC_DESC + arcSize)
             else -> android.graphics.Rect(0, 0, arcSize, arcSize)
         }
     }

@@ -76,7 +76,7 @@ fun GameScreen(
     var showGameMenu by remember { mutableStateOf(false) }
 
     val ticker = remember { Channel<Unit>(Channel.CONFLATED) }
-    val animState = remember { AnimationState() }
+    val animState = vm.animState
     val resetKey = remember { mutableStateOf(0) }
 
     val onFinalizeRequested: () -> Unit = {
@@ -157,12 +157,13 @@ private fun GameLeftPanel(
     val engine = vm.engine
 
     Box(mod) {
-        // yulang 背景：高度与内容一致（分数区+滚动格+跳过按钮），不纵向拉伸，顶部对齐
+        // yulang 背景：高度与内容一致（分数区+滚动格+跳过按钮），不纵向拉伸，
+        // 顶部居左与网格对齐，保持自身宽高比。
         yulang?.let {
             Image(bitmap = it, contentDescription = null,
-                modifier = Modifier.matchParentSize(),
-                contentScale = ContentScale.FillHeight,
-                alignment = Alignment.TopCenter)
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.TopStart)
         }
 
         // 内容层：与 yulang 背景顶端对齐
@@ -372,10 +373,20 @@ private fun startFinalFlow(
                     delay(PipeTypes.ANIM_FRAME_MS)
                 }
 
-                // 本波动画播放完：把已注水的格子固定为最终帧并登记为常显，后续波不再清除
+                // 本波动画播放完：把已注水的格子固定为最终帧并登记为常显，后续波不再清除。
+                // 立交等管道可能有多波水流先后经过同一格（如先横后纵），已有完成段必须合并而非覆盖，
+                // 否则后流入会抹掉先前已有水流。
                 for ((box, segs) in transient) {
                     segs.forEach { it.frame = PipeTypes.ANIM_FRAMES }
-                    anim.doneSegments[box] = segs
+                    val existing = anim.doneSegments[box]
+                    if (existing == null) {
+                        anim.doneSegments[box] = segs
+                    } else {
+                        val seen = existing.map { it.from to it.to }.toSet()
+                        for (s in segs) {
+                            if ((s.from to s.to) !in seen) existing.add(s)
+                        }
+                    }
                 }
             }
             // 清除瞬态动画段，避免残留；常显水纹放在 doneSegments 中继续显示
@@ -507,12 +518,14 @@ private fun CellView(
         }
 
         // frame 读取触发每帧重组（动画渲染）
-        val doing = anim.segments[box]
-        val done = anim.doneSegments[box]
-        val segs = if (frame >= 0) (doing ?: done) else null
-        if (segs != null) {
+        // 常显水流(done)与当前波动水流(doing)分两次绘制：
+        // 立交等管道可能先后有两波水流（如先横后纵），第二次流入(doing)不能覆盖已注水的常显(done)。
+        if (frame >= 0) {
+            val doneSegs = anim.doneSegments[box]
+            val doingSegs = anim.segments[box]
             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                drawWaterOverlay(segs, tag, this)
+                if (!doneSegs.isNullOrEmpty()) drawWaterOverlay(doneSegs, tag, this)
+                if (!doingSegs.isNullOrEmpty()) drawWaterOverlay(doingSegs, tag, this)
             }
         }
 
@@ -548,36 +561,45 @@ private fun DrawScope.drawWaterOverlay(
     val srcRect = GRect()
     val dstRect = RectF()
 
+    // 死胡同段（入口无出口）：入口向中心画直线
     for (seg in segs) {
-        val from = seg.from
-        val to = seg.to
-
-        if (from == to) {
-            // 死胡同：入口向中心画直线（叠加 1..frame）
+        if (seg.from == seg.to) {
             drawLineAccum(atlas, paint, cellW, cellH, sx, sy, srcRect, dstRect,
-                portToFlow(from, true), frame)
-        } else if (isStraightType) {
-            // 直线型管段（直线 / T 型 / 十字 / 桥梁）：
-            //  阶段一 先入中心（帧 1..8，边缘→中心）
-            //  阶段二 到中心后散向各出口（帧 9..15，中心→出口边缘）
-            val entryCount = frame.coerceAtMost(PipeTypes.ANIM_HALF_FRAME)
-            if (entryCount > 0) {
+                portToFlow(seg.from, true), frame)
+        }
+    }
+
+    val active = segs.filter { it.from != it.to }
+    if (active.isEmpty()) return
+
+    if (isStraightType) {
+        // 直线型管段（直线 / T 型 / 十字 / 桥梁）：
+        //  阶段一 先入中心（帧 1..8，边缘→中心）
+        //  阶段二 到中心后散向各出口（帧 9..15，中心→出口边缘）
+        val entryCount = frame.coerceAtMost(PipeTypes.ANIM_HALF_FRAME)
+        if (entryCount > 0) {
+            // 多个出口共用同一入口：入口段只画一次，避免重复叠加致中间透明度偏低
+            for (src in active.map { it.from }.distinct()) {
                 drawLineAccum(atlas, paint, cellW, cellH, sx, sy, srcRect, dstRect,
-                    portToFlow(from, true), entryCount)
+                    portToFlow(src, true), entryCount)
             }
-            if (frame > PipeTypes.ANIM_HALF_FRAME) {
-                // 按剩余帧数（15-8=7 帧）铺满 8 片到达边缘
-                val exitCount = (frame - PipeTypes.ANIM_HALF_FRAME) * 8 / (PipeTypes.ANIM_FRAMES - PipeTypes.ANIM_HALF_FRAME)
-                if (exitCount > 0) {
+        }
+        if (frame > PipeTypes.ANIM_HALF_FRAME) {
+            // 按剩余帧数（15-8=7 帧）铺满 8 片到达边缘
+            val exitCount = (frame - PipeTypes.ANIM_HALF_FRAME) * 8 / (PipeTypes.ANIM_FRAMES - PipeTypes.ANIM_HALF_FRAME)
+            if (exitCount > 0) {
+                for (seg in active) {
                     drawLineAccumCenterOut(atlas, paint, cellW, cellH, sx, sy, srcRect, dstRect,
-                        portToFlow(to, false), exitCount)
+                        portToFlow(seg.to, false), exitCount)
                 }
             }
-        } else {
-            // 弧线型（L 型 / 双弧立交）：弧线累积
-            val maxFrame = if (segs.size > 1) (frame * 2).coerceAtMost(15) else frame
+        }
+    } else {
+        // 弧线型（L 型 / 双弧立交）：每条弧独立累积
+        for (seg in active) {
+            val maxFrame = if (active.size > 1) (frame * 2).coerceAtMost(15) else frame
             drawArcAccum(atlas, paint, cellW, cellH, sx, sy, srcRect, dstRect,
-                from, to, maxFrame)
+                seg.from, seg.to, maxFrame)
         }
     }
 }
