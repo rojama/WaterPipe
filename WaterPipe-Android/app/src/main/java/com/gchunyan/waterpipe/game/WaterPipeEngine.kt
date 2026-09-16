@@ -228,10 +228,9 @@ class WaterPipeEngine(
                     errors.add(ErrBox(box, map.errLetter))
                 }
             }
-            // 立交独立双通道：LURDX 与 双弧立交，处理后清 in_lab 防止交叉传染
-            if (fromTag == PipeTypes.LURDX || fromTag == PipeTypes.LURD_BACK || fromTag == PipeTypes.LURD_SLASH) {
-                st.inLab.clear()
-            }
+            // 处理完本格后统一清空 in_lab：本波已计分并传播的入口下次不再重复推导，
+            // 避免闭合回路/后续波次对同一入口重复计分、重复流出（水流重复流入）。
+            st.inLab.clear()
         }
 
         waveQueue.addAll(nextWave)

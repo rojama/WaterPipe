@@ -40,7 +40,7 @@ class SettingsRepository(context: Context) {
             soundsOn = p[Keys.soundsOn] ?: true,
             isDebug = p[Keys.isDebug] ?: false,
             infoPanelLeft = p[Keys.infoPanelLeft] ?: true,
-            queueDirectionUp = p[Keys.queueUp] ?: true,
+            queueDirectionUp = p[Keys.queueUp] ?: false,
             homeAction = HomeAction.of(p[Keys.homeAction] ?: HomeAction.CLOSE.value),
             lastPlayerName = p[Keys.lastName] ?: "新玩家"
         )

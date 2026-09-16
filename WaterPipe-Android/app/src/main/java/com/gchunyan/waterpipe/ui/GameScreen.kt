@@ -416,6 +416,7 @@ private fun startFinalFlow(
                 if (!vm.engine.isErr) {
                     val rank = vm.getRankingNo(vm.engine.score)
                     if (rank > 0) {
+                        vm.pendingScreenshot = vm.captureScreenshot(nav.context)
                         nav.navigate(Screen.NameEdit.build(rank, vm.engine.score))
                     }
                 }

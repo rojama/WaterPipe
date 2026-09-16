@@ -1,5 +1,6 @@
 package com.gchunyan.waterpipe.ui
 
+import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -20,6 +21,7 @@ import com.gchunyan.waterpipe.data.HomeAction
 import com.gchunyan.waterpipe.data.RankingEntry
 import com.gchunyan.waterpipe.data.SettingsRepository
 import com.gchunyan.waterpipe.game.WaterPipeEngine
+import com.gchunyan.waterpipe.util.BitmapUtil
 import com.gchunyan.waterpipe.util.SoundManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +30,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 应用入口导航：游戏 / 设置 / 排行榜 / 说明 / 关于 / 姓名输入 / 截图查看。
@@ -62,6 +65,9 @@ class GameViewModel(private val repo: SettingsRepository) : ViewModel() {
     var gameVersion by mutableIntStateOf(0)
         private set
 
+    /** 终局时截取的棋盘临时文件路径；记录排行榜时用于关联截图。 */
+    var pendingScreenshot: String? = null
+
     val settings: StateFlow<AppSettings> = repo.settingsFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
 
@@ -94,6 +100,12 @@ class GameViewModel(private val repo: SettingsRepository) : ViewModel() {
             repo.saveLastPlayerName(name)
             _ranking.value = list
         }
+    }
+
+    /** 截取当前终局棋盘为临时 PNG，返回其绝对路径（失败返回 null）。 */
+    suspend fun captureScreenshot(context: Context): String? = withContext(Dispatchers.IO) {
+        runCatching { BitmapUtil.renderBoardPng(context, engine, repo.tempScreenshotFile()) }
+            .getOrNull()
     }
 
     fun refreshRanking() {
@@ -144,8 +156,8 @@ fun WaterPipeApp() {
                 onConfirm = { name ->
                     nav.previousBackStackEntry?.savedStateHandle?.set("name_result", true)
                     nav.previousBackStackEntry?.savedStateHandle?.set("name_value", name)
-                    // 记录成绩到排行榜（仅记录姓名与分数，不截图）。
-                    vm.saveScreenshotAndInsert("", name, score, rank)
+                    // 记录成绩到排行榜（附终局棋盘截图）。
+                    vm.saveScreenshotAndInsert(vm.pendingScreenshot ?: "", name, score, rank)
                     nav.popBackStack()
                 }
             )
