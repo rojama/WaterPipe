@@ -305,18 +305,18 @@ class WaterPipeEngine(
             PipeTypes.RD -> addAll(mapOf('R' to 'S', 'D' to 'E'))
             PipeTypes.LD -> addAll(mapOf('L' to 'S', 'D' to 'W'))
             PipeTypes.LURD_BACK -> {
-                // LU + RD 双对角独立
-                if ('L' in inLetters) out.add('N' to 'L')
-                if ('U' in inLetters) out.add('W' to 'U')
-                if ('R' in inLetters) out.add('S' to 'R')
-                if ('D' in inLetters) out.add('E' to 'D')
-            }
-            PipeTypes.LURD_SLASH -> {
-                // LD + RU 双对角独立
+                // LD + RU 双对角独立（\ 反斜杠：左-下 / 右-上）
                 if ('L' in inLetters) out.add('S' to 'L')
                 if ('D' in inLetters) out.add('W' to 'D')
                 if ('R' in inLetters) out.add('N' to 'R')
                 if ('U' in inLetters) out.add('E' to 'U')
+            }
+            PipeTypes.LURD_SLASH -> {
+                // LU + RD 双对角独立（/ 正斜杠：左-上 / 右-下）
+                if ('L' in inLetters) out.add('N' to 'L')
+                if ('U' in inLetters) out.add('W' to 'U')
+                if ('R' in inLetters) out.add('S' to 'R')
+                if ('D' in inLetters) out.add('E' to 'D')
             }
             // SOURCE case removed: 水源格 tag 现在由玩家放置，走常规分支
         }
